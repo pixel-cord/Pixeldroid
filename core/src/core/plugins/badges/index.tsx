@@ -1,6 +1,5 @@
 import { after } from "@lib/api/patcher";
-import { onJsxCreate } from "@lib/api/react/jsx";
-import { findByName } from "@metro";
+import { findByName, findByProps } from "@metro";
 import { useEffect, useState } from "react";
 
 import { defineCorePlugin } from "..";
@@ -31,6 +30,8 @@ function fetchBadgeMap(): Promise<Record<string, PixelcordBadge[]>> {
     return badgeMapPromise;
 }
 
+let unpatchers: Array<() => boolean> = [];
+
 export default defineCorePlugin({
     manifest: {
         id: "pixelcord.badges",
@@ -42,13 +43,21 @@ export default defineCorePlugin({
     start() {
         const propHolder = {} as Record<string, any>;
 
-        onJsxCreate("RenderedBadge", (_, ret) => {
-            if (ret.props.id.match(/pixelcord-\d+-\d+/)) {
-                Object.assign(ret.props, propHolder[ret.props.id]);
+        // Inject the badge image by matching the rendered element's id directly
+        // on the JSX runtime, instead of depending on the badge component's name
+        // (e.g. "RenderedBadge"), which drifts between Discord versions. This way
+        // it works regardless of what component actually renders the badge.
+        const jsxRuntime = findByProps("jsx", "jsxs");
+        const inject = (_args: unknown[], ret: any) => {
+            const id = ret?.props?.id;
+            if (typeof id === "string" && id.startsWith("pixelcord-") && propHolder[id]) {
+                Object.assign(ret.props, propHolder[id]);
             }
-        });
+        };
+        unpatchers.push(after("jsx", jsxRuntime, inject));
+        unpatchers.push(after("jsxs", jsxRuntime, inject));
 
-        after("default", useBadgesModule, ([user], r) => {
+        unpatchers.push(after("default", useBadgesModule, ([user], r) => {
             const [badges, setBadges] = useState<PixelcordBadge[]>(
                 user && badgeMap ? badgeMap[user.userId] ?? [] : []
             );
@@ -74,6 +83,10 @@ export default defineCorePlugin({
                     });
                 });
             }
-        });
+        }));
+    },
+    stop() {
+        unpatchers.forEach(u => u?.());
+        unpatchers = [];
     }
 });

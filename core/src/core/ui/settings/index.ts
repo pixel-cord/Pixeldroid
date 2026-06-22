@@ -24,7 +24,14 @@ export default function initSettings() {
             {
                 key: "BUNNY_PLUGINS",
                 title: () => Strings.PLUGINS,
-                icon: findAssetId("ActivitiesIcon"),
+                // "ActivitiesIcon" doesn't exist on every Discord build; fall
+                // through candidates and finally to our own logo so the row
+                // always has a visible icon.
+                icon: findAssetId("ActivitiesIcon")
+                    ?? findAssetId("ApplicationsIcon")
+                    ?? findAssetId("RobotIcon")
+                    ?? findAssetId("WrenchIcon")
+                    ?? { uri: PyoncordIcon },
                 render: () => import("@core/ui/settings/pages/Plugins")
             },
             {
