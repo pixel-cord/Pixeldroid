@@ -12,21 +12,34 @@ interface PixelcordBadge {
     tooltip: string;
 }
 
-const BADGES_URL = "https://api.pixelcord.com.br/badges.json";
+// Same three feeds the desktop client aggregates: Vencord + Equicord donor
+// badges plus our own. Each feed is { userId: [{ badge, tooltip }] }.
+const BADGE_FEEDS = [
+    "https://badges.vencord.dev/badges.json",
+    "https://badge.equicord.org/badges.json",
+    "https://api.pixelcord.com.br/badges.json"
+];
 
 const useBadgesModule = findByName("useBadges", false);
 
-// The whole feed is one file, so fetch it once per session and share it for
-// every profile instead of hitting the API per user.
+// Fetch every feed once per session and merge them per user. A feed that is
+// down or blocked just contributes nothing — the others still load.
 let badgeMap: Record<string, PixelcordBadge[]> | null = null;
 let badgeMapPromise: Promise<Record<string, PixelcordBadge[]>> | null = null;
 
 function fetchBadgeMap(): Promise<Record<string, PixelcordBadge[]>> {
     if (badgeMap) return Promise.resolve(badgeMap);
-    badgeMapPromise ??= fetch(BADGES_URL)
-        .then(r => r.json())
-        .then((map: Record<string, PixelcordBadge[]>) => (badgeMap = map ?? {}))
-        .catch(() => (badgeMap = {}));
+    badgeMapPromise ??= Promise.all(
+        BADGE_FEEDS.map(url => fetch(url).then(r => r.json()).catch(() => ({})))
+    ).then((maps: Record<string, PixelcordBadge[]>[]) => {
+        const merged: Record<string, PixelcordBadge[]> = {};
+        for (const map of maps) {
+            for (const userId in map) {
+                (merged[userId] ??= []).push(...(map[userId] ?? []));
+            }
+        }
+        return (badgeMap = merged);
+    }).catch(() => (badgeMap = {}));
     return badgeMapPromise;
 }
 
