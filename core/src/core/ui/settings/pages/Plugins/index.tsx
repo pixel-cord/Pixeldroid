@@ -19,6 +19,7 @@ import { View } from "react-native";
 
 import { UnifiedPluginModel } from "./models";
 import unifyBunnyPlugin from "./models/bunny";
+import unifyCorePlugin from "./models/core";
 import unifyVdPlugin from "./models/vendetta";
 
 const { openAlert } = lazyDestructure(() => findByProps("openAlert", "dismissAlert"));
@@ -65,8 +66,11 @@ export default function Plugins() {
 
             const vdPlugins = Object.values(VdPluginManager.plugins).map(unifyVdPlugin);
             const bnPlugins = [...registeredPlugins.values()].filter(p => isPluginInstalled(p.id) && !isCorePlugin(p.id)).map(unifyBunnyPlugin);
+            // Pixelcord's own bundled plugins (NoTrack, badges, SilentTyping, …)
+            // are core plugins; surface them here so they can be toggled.
+            const corePlugins = [...registeredPlugins.values()].filter(p => isPluginInstalled(p.id) && isCorePlugin(p.id) && p.id.startsWith("pixelcord.")).map(unifyCorePlugin);
 
-            return [...vdPlugins, ...bnPlugins];
+            return [...corePlugins, ...vdPlugins, ...bnPlugins];
         }}
         ListHeaderComponent={() => {
             const unproxiedPlugins = Object.values(VdPluginManager.plugins).filter(p => !p.id.startsWith(VD_PROXY_PREFIX) && !p.id.startsWith(BUNNY_PROXY_PREFIX));
