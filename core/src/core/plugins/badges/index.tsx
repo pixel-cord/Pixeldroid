@@ -20,6 +20,13 @@ const BADGE_FEEDS = [
     "https://api.pixelcord.com.br/badges.json"
 ];
 
+// Pixelcord contributor badge — shown for the hardcoded contributor IDs below
+// (code contributors), separate from the donor feeds. Add IDs as needed.
+const CONTRIBUTOR_BADGE = "https://cdn.pixelcord.com.br/uploads/image-a005087cdafda23dabae78aae6f81908.png";
+const CONTRIBUTORS: Record<string, string> = {
+    "1499140821696647301": "Pixelcord Contributor" // outlayer
+};
+
 const useBadgesModule = findByName("useBadges", false);
 
 // Fetch every feed once per session and merge them per user. A feed that is
@@ -82,6 +89,17 @@ export default defineCorePlugin({
             }, [user]);
 
             if (user) {
+                // Contributor badge first (start position), like the desktop client.
+                if (CONTRIBUTORS[user.userId]) {
+                    const cid = `pixelcord-${user.userId}-c`;
+                    propHolder[cid] = {
+                        source: { uri: CONTRIBUTOR_BADGE },
+                        id: "pixelcord-c",
+                        label: CONTRIBUTORS[user.userId]
+                    };
+                    r.push({ id: cid, description: CONTRIBUTORS[user.userId], icon: "_" });
+                }
+
                 badges.forEach((badge, i) => {
                     propHolder[`pixelcord-${user.userId}-${i}`] = {
                         source: { uri: badge.badge },
