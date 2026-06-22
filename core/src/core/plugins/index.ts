@@ -10,7 +10,8 @@ export const getCorePlugins = (): Record<string, CorePlugin> => ({
     "bunny.quickinstall": require("./quickinstall"),
     "pixelcord.badges": require("./badges"),
     "pixelcord.notrack": require("./notrack"),
-    "pixelcord.silenttyping": require("./silenttyping")
+    "pixelcord.silenttyping": require("./silenttyping"),
+    "pixelcord.noreplymention": require("./noreplymention")
 });
 
 /**
