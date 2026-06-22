@@ -1,0 +1,21 @@
+# Node / core
+node_modules/
+core/dist/
+*.log
+
+# Gradle / Android
+.gradle/
+**/build/
+local.properties
+*.apk
+*.aab
+
+# Assinatura — NUNCA commitar
+*.jks
+*.keystore
+signing-key*
+
+# Editores
+.idea/
+.vscode/
+.DS_Store

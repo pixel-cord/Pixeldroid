@@ -1,0 +1,94 @@
+name: Release
+
+# Build manual: Actions → Release → Run workflow, informando a versão.
+# Gera os 3 artefatos e publica TUDO numa única release:
+#   - pixelcord.min.js     (bundle do core, baixado pelo módulo xposed)
+#   - pixelcord-manager.apk (instalador sem root — é o que o usuário baixa)
+#   - pixelcord-xposed.apk  (módulo injetor — o Manager baixa sozinho)
+on:
+  workflow_dispatch:
+    inputs:
+      versionName:
+        description: "Versão (ex: 1.0.0)"
+        required: true
+        default: "1.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ───────────────── Core (bundle JS) ─────────────────
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Build core bundle
+        working-directory: core
+        run: |
+          bun install --frozen-lockfile
+          bun run build --build-minify
+          cp dist/pixelcord.min.js "$GITHUB_WORKSPACE/pixelcord.min.js"
+
+      # ───────────────── Toolchain Android ─────────────────
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE }}" | base64 -d > "$GITHUB_WORKSPACE/signing-key.jks"
+
+      # ───────────────── Manager APK (sem root) ─────────────────
+      # O build.gradle do Manager lê app/keystore.jks + estas env vars.
+      - name: Build Manager APK
+        working-directory: loader
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_ENTRY_ALIAS: ${{ secrets.KEYSTORE_ENTRY_ALIAS }}
+          KEYSTORE_ENTRY_PASSWORD: ${{ secrets.KEYSTORE_ENTRY_PASSWORD }}
+          GRADLE_OPTS: -Dorg.gradle.daemon=false
+        run: |
+          cp "$GITHUB_WORKSPACE/signing-key.jks" app/keystore.jks
+          ./gradlew assembleRelease -Pversion=${{ inputs.versionName }}
+          cp app/build/outputs/apk/release/*.apk "$GITHUB_WORKSPACE/pixelcord-manager.apk"
+
+      # ───────────────── Xposed APK (injetor) ─────────────────
+      # Sem signingConfig próprio → assina via injected signing props.
+      - name: Build Xposed APK
+        working-directory: xposed
+        env:
+          GRADLE_OPTS: -Dorg.gradle.daemon=false
+        run: |
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=$GITHUB_WORKSPACE/signing-key.jks \
+            -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
+            -Pandroid.injected.signing.key.alias="${{ secrets.KEYSTORE_ENTRY_ALIAS }}" \
+            -Pandroid.injected.signing.key.password="${{ secrets.KEYSTORE_ENTRY_PASSWORD }}"
+          cp app/build/outputs/apk/release/*.apk "$GITHUB_WORKSPACE/pixelcord-xposed.apk"
+
+      # ───────────────── Release única ─────────────────
+      - name: Publish release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="v${{ inputs.versionName }}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" \
+            --title "Pixelcord Mobile $tag" \
+            --generate-notes \
+            "$GITHUB_WORKSPACE/pixelcord.min.js" \
+            "$GITHUB_WORKSPACE/pixelcord-manager.apk" \
+            "$GITHUB_WORKSPACE/pixelcord-xposed.apk"
