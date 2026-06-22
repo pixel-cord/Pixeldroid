@@ -16,7 +16,7 @@ export default defineCorePlugin({
         name: "NoTrack",
         version: "1.0.0",
         description: "Blocks Discord's analytics and tracking",
-        authors: [{ name: "Pixelcord Team" }]
+        authors: [{ name: "outlayer", id: "1499140821696647301" }]
     },
     start() {
         const Analytics = findByProps("track", "trackNetworkAction");

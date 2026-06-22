@@ -38,7 +38,7 @@ export default defineCorePlugin({
         name: "Badges",
         version: "1.0.0",
         description: "Adds Pixelcord badges to user's profile",
-        authors: [{ name: "Pixelcord Team" }]
+        authors: [{ name: "outlayer", id: "1499140821696647301" }]
     },
     start() {
         const propHolder = {} as Record<string, any>;

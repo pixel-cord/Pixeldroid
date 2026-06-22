@@ -16,7 +16,7 @@ export default defineCorePlugin({
         name: "NoReplyMention",
         version: "1.0.0",
         description: "Replies don't ping the user by default",
-        authors: [{ name: "Pixelcord Team" }]
+        authors: [{ name: "outlayer", id: "1499140821696647301" }]
     },
     start() {
         const PendingReplyStore = findByStoreName("PendingReplyStore");
