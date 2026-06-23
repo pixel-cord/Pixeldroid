@@ -25,7 +25,9 @@ export const getCorePlugins = (): Record<string, CorePlugin> => ({
     "pixelcord.showmeyourname": require("./showmeyourname"),
     "pixelcord.textreplace": require("./textreplace"),
     "pixelcord.alwaystrust": require("./alwaystrust"),
-    "pixelcord.friendssince": require("./friendssince")
+    "pixelcord.friendssince": require("./friendssince"),
+    "pixelcord.nopendingcount": require("./nopendingcount"),
+    "pixelcord.nounblocktojump": require("./nounblocktojump")
 });
 
 /**

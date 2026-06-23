@@ -1,6 +1,7 @@
 import { after } from "@lib/api/patcher";
 import { findByProps, findByStoreName } from "@metro";
 import { Text as MText } from "@metro/common/components";
+import { cloneElement } from "react";
 import { Image, View } from "react-native";
 
 import { defineCorePlugin } from "..";
@@ -33,7 +34,7 @@ function FriendsSinceLine({ userId }: { userId: string; }) {
     const text = since ? formatSince(since) : null;
     if (!text) return null;
     return (
-        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, gap: 4 }}>
+        <View style={{ paddingTop: 14, gap: 4 }}>
             <MText variant="eyebrow" color="text-muted">Amigos desde</MText>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <Image
@@ -56,12 +57,13 @@ function inject(args: any[], ret: any) {
         if (name !== "UserProfileAboutMeCard") return;
         const userId = args?.[1]?.userId;
         if (!userId) return;
-        return (
-            <View>
-                {ret}
-                <FriendsSinceLine userId={userId} />
-            </View>
-        );
+        if (!RelationshipStore?.isFriend?.(userId)) return;
+        // Insert the line as a child of the card itself (not a sibling) so it
+        // shares the card background, sitting just below "Membro desde".
+        const kids = ret?.props?.children;
+        const arr = Array.isArray(kids) ? kids.slice() : (kids != null ? [kids] : []);
+        arr.push(<FriendsSinceLine key="pc-friendssince" userId={userId} />);
+        return cloneElement(ret, undefined, ...arr);
     } catch {
         return;
     }
