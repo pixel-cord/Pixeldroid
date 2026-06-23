@@ -1,13 +1,17 @@
 // Custom profile platforms. Their ids are REAL Discord connection types, so when
 // we inject them into a profile's connectedAccounts the Discord client renders
-// them natively (proper icon, link, layout) — no custom UI needed on profiles.
-// `icon` is only used by the manage UI tile.
+// them natively (proper icon, link, layout) on the profile. `asset`/`color` are
+// only used by the manage UI tile: `asset` is a native Discord asset name (used
+// via findAssetId); platforms without one fall back to a brand-colored tile.
 
 export interface CustomPlatform {
     id: string;
     name: string;
     placeholder: string;
-    icon: string;
+    /** Native Discord asset name for the manage-UI tile, if Discord bundles one. */
+    asset?: string;
+    /** Brand color for the fallback tile when there's no native asset. */
+    color: string;
     profileUrl: (value: string) => string;
     normalize: (raw: string) => string;
 }
@@ -20,7 +24,8 @@ export const PLATFORMS: CustomPlatform[] = [
         id: "instagram",
         name: "Instagram",
         placeholder: "seu.user",
-        icon: "https://cdn.simpleicons.org/instagram/E4405F",
+        asset: "img_account_sync_instagram_light_and_dark",
+        color: "#E4405F",
         profileUrl: v => `https://www.instagram.com/${v}`,
         normalize: handle
     },
@@ -28,7 +33,7 @@ export const PLATFORMS: CustomPlatform[] = [
         id: "lastfm",
         name: "Last.fm",
         placeholder: "seu-user",
-        icon: "https://cdn.simpleicons.org/lastdotfm/D51007",
+        color: "#D51007",
         profileUrl: v => `https://www.last.fm/user/${v}`,
         normalize: handle
     }

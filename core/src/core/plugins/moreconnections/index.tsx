@@ -214,10 +214,17 @@ function ManageView() {
                 PLATFORMS.map(p => {
                     const saved = connections[p.id];
                     const visible = !hidden.includes(p.id);
+                    const assetId = p.asset ? findAssetId(p.asset) : undefined;
                     return (
                         <View key={p.id} style={{ gap: 8 }}>
                             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                                <Image source={{ uri: p.icon }} style={{ width: 22, height: 22, borderRadius: 6 }} />
+                                {assetId ? (
+                                    <Image source={assetId} style={{ width: 22, height: 22, borderRadius: 6 }} />
+                                ) : (
+                                    <View style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: p.color, alignItems: "center", justifyContent: "center" }}>
+                                        <Text variant="text-xs/bold" style={{ color: "#fff" }}>{p.name[0]}</Text>
+                                    </View>
+                                )}
                                 <Text variant="text-md/semibold" style={{ flex: 1 }}>{p.name}</Text>
                                 {saved ? <FormSwitch value={visible} onValueChange={(v: boolean) => toggleVisible(p.id, v)} /> : null}
                             </View>
