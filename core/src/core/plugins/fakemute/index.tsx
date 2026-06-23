@@ -132,7 +132,7 @@ function FakeMuteButton() {
                 width: 48,
                 height: 48,
                 borderRadius: 24,
-                marginHorizontal: 6,
+                marginLeft: 16,
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: on ? "#f23f43" : "rgba(255,255,255,0.12)"
@@ -156,10 +156,13 @@ function isMic(el: any): boolean {
 function wrapMic(_args: unknown[], ret: any) {
     try {
         if (isMic(ret)) {
+            // Wrap the mic in its own box so it keeps its size, then place our
+            // button beside it with a real gap (the Rive mic doesn't reserve flex
+            // width on its own, which made them overlap).
             return createElement(
                 View,
-                { style: { flexDirection: "row", alignItems: "center" } },
-                ret,
+                { style: { flexDirection: "row", alignItems: "center", justifyContent: "center" } },
+                createElement(View, null, ret),
                 createElement(FakeMuteButton, { key: "px-fakemute" })
             );
         }
