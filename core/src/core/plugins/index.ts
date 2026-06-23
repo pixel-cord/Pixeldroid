@@ -19,7 +19,7 @@ export const getCorePlugins = (): Record<string, CorePlugin> => ({
     "pixelcord.moreconnections": require("./moreconnections"),
     "pixelcord.anonymisefiles": require("./anonymisefiles"),
     "pixelcord.noprofilethemes": require("./noprofilethemes"),
-    "pixelcord.noblockedmessages": require("./noblockedmessages")
+    "pixelcord.fakeprofilethemes": require("./fakeprofilethemes")
 });
 
 /**
