@@ -1,19 +1,21 @@
 import { before } from "@lib/api/patcher";
 import { createStorage, useObservable } from "@lib/api/storage";
-import { findByName, findByStoreName } from "@metro";
+import { findByProps, findByStoreName } from "@metro";
 import { TableRowGroup, TableSwitchRow, Text } from "@metro/common/components";
 import { ScrollView } from "react-native";
 
 import { defineCorePlugin } from "..";
 
-// NoBlockedMessages (mobile, attempt #1). Hides messages from blocked (and
-// optionally ignored) users by emptying their row in RowManager.generate — the
-// per-message factory the chat list calls (rowType 1 = a message row; author at
-// message.author.id). If this leaves a visible gap, the next iteration switches
-// to filtering the row list instead.
+// NoBlockedMessages (mobile, attempt #2). Instead of blanking each message row
+// (which left empty artifacts), we filter the row list before it renders: the
+// chat list's `updateRows(rows)` receives the array of row descriptors, so we
+// drop blocked/ignored users' messages (rowType 1) AND Discord's collapsed
+// "X blocked messages" bar (rowType 2, identified by its author). Clean removal,
+// no gaps, no crash.
 
-const RowManager = findByName("RowManager");
 const RelationshipStore = findByStoreName("RelationshipStore");
+// The messages list ref class (scrollTo / updateRows / clearRows / fadeIn …).
+const MessagesList = findByProps("updateRows", "clearRows");
 
 interface NBMSettings {
     ignored: boolean;
@@ -31,6 +33,14 @@ function isSuppressed(authorId?: string): boolean {
     return false;
 }
 
+// rowType 1 = message, rowType 2 = collapsed "X blocked messages" bar. Both carry
+// the (representative) message whose author tells us if it's blocked/ignored.
+function shouldHideRow(r: any): boolean {
+    if (!r || (r.rowType !== 1 && r.rowType !== 2)) return false;
+    const aid = r.message?.author?.id ?? r.message?.authorId;
+    return isSuppressed(aid);
+}
+
 let unpatch: (() => boolean) | null = null;
 
 function SettingsComponent() {
@@ -38,7 +48,8 @@ function SettingsComponent() {
     return (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: 16, gap: 16 }}>
             <Text variant="text-md/normal" color="text-muted" style={{ paddingHorizontal: 16 }}>
-                Esconde as mensagens de quem você bloqueou. Opcionalmente também as de usuários ignorados.
+                Remove do chat as mensagens de quem você bloqueou — incluindo a barra "X mensagens
+                bloqueadas". Opcionalmente também esconde usuários ignorados.
             </Text>
             <TableRowGroup title="Opções">
                 <TableSwitchRow
@@ -58,40 +69,19 @@ export default defineCorePlugin({
     manifest: {
         id: "pixelcord.noblockedmessages",
         name: "NoBlockedMessages",
-        version: "1.0.0",
-        description: "Esconde as mensagens de usuários bloqueados (e opcionalmente ignorados) do chat.",
+        version: "1.1.0",
+        description: "Remove do chat as mensagens de usuários bloqueados (e opcionalmente ignorados), incluindo a barra \"X mensagens bloqueadas\".",
         authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
     SettingsComponent,
     start() {
-        const proto = RowManager?.prototype;
-        if (!proto?.generate) return;
-        unpatch = before("generate", proto, (args: any[]) => {
+        if (!MessagesList?.updateRows) return;
+        unpatch = before("updateRows", MessagesList, (args: any[]) => {
             try {
-                const data = args?.[0];
-                if (!data || data.rowType !== 1) return;
-                const m = data.message;
-                const aid = m?.author?.id ?? m?.authorId;
-                if (!isSuppressed(aid)) return;
-
-                // `message` is a class instance — a plain spread loses its methods
-                // and Discord's renderer crashes calling them. Clone preserving the
-                // prototype, then empty the visible content. If anything throws,
-                // leave the row untouched (show the message rather than crash).
-                const clone = Object.assign(Object.create(Object.getPrototypeOf(m)), m);
-                clone.content = "";
-                clone.attachments = [];
-                clone.embeds = [];
-                clone.stickerItems = [];
-                clone.stickers = [];
-                clone.soundboardSounds = [];
-                clone.components = [];
-                clone.codedLinks = [];
-
-                data.message = clone;
-                data.renderContentOnly = true;
-                data.isFirst = false;
-                data.separatorBefore = false;
+                const rows = args?.[0];
+                if (!Array.isArray(rows)) return;
+                const filtered = rows.filter(r => !shouldHideRow(r));
+                if (filtered.length !== rows.length) args[0] = filtered;
             } catch { /* never break the chat over a hide */ }
         });
     },
