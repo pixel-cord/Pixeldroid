@@ -24,7 +24,8 @@ export const getCorePlugins = (): Record<string, CorePlugin> => ({
     "pixelcord.dontroundtimestamps": require("./dontroundtimestamps"),
     "pixelcord.showmeyourname": require("./showmeyourname"),
     "pixelcord.textreplace": require("./textreplace"),
-    "pixelcord.alwaystrust": require("./alwaystrust")
+    "pixelcord.alwaystrust": require("./alwaystrust"),
+    "pixelcord.friendssince": require("./friendssince")
 });
 
 /**
