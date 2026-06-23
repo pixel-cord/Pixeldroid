@@ -220,6 +220,10 @@ function ManageView() {
                             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                                 {assetId ? (
                                     <Image source={assetId} style={{ width: 22, height: 22, borderRadius: 6 }} />
+                                ) : p.iconData ? (
+                                    <View style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: p.color, alignItems: "center", justifyContent: "center" }}>
+                                        <Image source={{ uri: p.iconData }} style={{ width: 15, height: 15 }} resizeMode="contain" />
+                                    </View>
                                 ) : (
                                     <View style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: p.color, alignItems: "center", justifyContent: "center" }}>
                                         <Text variant="text-xs/bold" style={{ color: "#fff" }}>{p.name[0]}</Text>

@@ -4,13 +4,17 @@
 // only used by the manage UI tile: `asset` is a native Discord asset name (used
 // via findAssetId); platforms without one fall back to a brand-colored tile.
 
+import { LASTFM_ICON } from "./lastfmIcon";
+
 export interface CustomPlatform {
     id: string;
     name: string;
     placeholder: string;
     /** Native Discord asset name for the manage-UI tile, if Discord bundles one. */
     asset?: string;
-    /** Brand color for the fallback tile when there's no native asset. */
+    /** Embedded image (data URI) for platforms with no native asset, drawn on the tile. */
+    iconData?: string;
+    /** Brand color for the tile (background behind iconData, or fallback). */
     color: string;
     profileUrl: (value: string) => string;
     normalize: (raw: string) => string;
@@ -33,6 +37,7 @@ export const PLATFORMS: CustomPlatform[] = [
         id: "lastfm",
         name: "Last.fm",
         placeholder: "seu-user",
+        iconData: LASTFM_ICON,
         color: "#D51007",
         profileUrl: v => `https://www.last.fm/user/${v}`,
         normalize: handle
