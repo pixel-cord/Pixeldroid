@@ -1,12 +1,12 @@
 import { findAssetId } from "@lib/api/assets";
 import { useObservable } from "@lib/api/storage";
 import { showToast } from "@lib/ui/toasts";
-import { Button, FormSwitch, Text, TextInput } from "@metro/common/components";
+import { Button, FormSwitch, Text } from "@metro/common/components";
 import { useEffect, useState } from "react";
 import { Image, ScrollView, View } from "react-native";
 
 import { defineCorePlugin } from "..";
-import { authStorage, clearToken, isAuthed, loginWithDiscord, setToken } from "../badges/lib/auth";
+import { authStorage, clearToken, isAuthed, loginWithDiscord } from "../badges/lib/auth";
 import LoginWebView from "../badges/lib/LoginWebView";
 import { getMyHidden, setMyHidden } from "./api";
 import { fetchMyBadges, ManageableBadge } from "./feeds";
@@ -18,7 +18,6 @@ function LoginView() {
     const [busy, setBusy] = useState(false);
     const [webOpen, setWebOpen] = useState(false);
     const [more, setMore] = useState(false);
-    const [pasted, setPasted] = useState("");
 
     // Browser fallback — only if the native login ever fails.
     if (webOpen) {
@@ -60,17 +59,7 @@ function LoginView() {
 
             <Button size="sm" variant="tertiary" text={more ? "Esconder opções" : "Problemas? Outras opções"} onPress={() => setMore(!more)} />
             {more && (
-                <>
-                    <Button size="md" variant="secondary" text="Autorizar pelo navegador" onPress={() => setWebOpen(true)} />
-                    <TextInput label="Token (manual)" placeholder="Cole o token aqui" value={pasted} onChange={setPasted} isClearable />
-                    <Button
-                        size="md"
-                        variant="secondary"
-                        disabled={!pasted.trim()}
-                        text="Salvar token"
-                        onPress={() => { setToken(pasted.trim()); showToast("Conectado! 💜", findAssetId("CircleCheckIcon-primary")); }}
-                    />
-                </>
+                <Button size="md" variant="secondary" text="Autorizar pelo navegador" onPress={() => setWebOpen(true)} />
             )}
         </ScrollView>
     );
