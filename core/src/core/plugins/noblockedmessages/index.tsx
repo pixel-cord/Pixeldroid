@@ -74,22 +74,24 @@ export default defineCorePlugin({
                 const aid = m?.author?.id ?? m?.authorId;
                 if (!isSuppressed(aid)) return;
 
-                // Collapse the blocked message to nothing.
+                // `message` is a class instance — a plain spread loses its methods
+                // and Discord's renderer crashes calling them. Clone preserving the
+                // prototype, then empty the visible content. If anything throws,
+                // leave the row untouched (show the message rather than crash).
+                const clone = Object.assign(Object.create(Object.getPrototypeOf(m)), m);
+                clone.content = "";
+                clone.attachments = [];
+                clone.embeds = [];
+                clone.stickerItems = [];
+                clone.stickers = [];
+                clone.soundboardSounds = [];
+                clone.components = [];
+                clone.codedLinks = [];
+
+                data.message = clone;
                 data.renderContentOnly = true;
                 data.isFirst = false;
                 data.separatorBefore = false;
-                data.message = {
-                    ...m,
-                    content: "",
-                    attachments: [],
-                    embeds: [],
-                    stickerItems: [],
-                    stickers: [],
-                    soundboardSounds: [],
-                    components: [],
-                    codedLinks: [],
-                    customRenderedContent: null
-                };
             } catch { /* never break the chat over a hide */ }
         });
     },
