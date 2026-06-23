@@ -1,7 +1,7 @@
 import { findAssetId } from "@lib/api/assets";
 import { useObservable } from "@lib/api/storage";
 import { showToast } from "@lib/ui/toasts";
-import { findByName, findByStoreName } from "@metro";
+import { findByStoreName } from "@metro";
 import { Button, FormSwitch, Text } from "@metro/common/components";
 import { useEffect, useMemo, useState } from "react";
 import { Image, ScrollView, View } from "react-native";
@@ -13,7 +13,7 @@ import { getMyHidden, setMyHidden } from "./api";
 import { fetchMyBadges, ManageableBadge } from "./feeds";
 
 const UserStore = findByStoreName("UserStore");
-const useBadgesModule = findByName("useBadges", false);
+const UserProfileStore = findByStoreName("UserProfileStore");
 
 // Resolve a native Discord badge's icon to an <Image> source (url or asset id).
 function nativeBadgeIcon(b: any): any {
@@ -23,17 +23,17 @@ function nativeBadgeIcon(b: any): any {
     return null;
 }
 
-// Current user's NATIVE Discord badges (staff, premium, active_developer…) so
-// they can be hidden too, matching the desktop manage UI's getAllBadges.
-// Best-effort: this drives a hook, so it must run unconditionally and never throw.
-function useNativeBadges(userId?: string): any[] {
-    let res: any = null;
+// Current user's NATIVE Discord badges (premium, guild_booster, legacy_username,
+// quest_completed…) read straight from the profile store so they can be hidden
+// too, matching the desktop manage UI. (The useBadges hook returns nothing when
+// called outside a profile render, so we read the store directly.)
+function getNativeBadges(userId?: string): any[] {
     try {
-        res = useBadgesModule?.default?.({ userId });
+        const b = UserProfileStore?.getUserProfile?.(userId)?.badges;
+        return Array.isArray(b) ? b : [];
     } catch {
-        res = null;
+        return [];
     }
-    return Array.isArray(res) ? res : [];
 }
 
 // Hide your own badges for everyone on Pixelcord. The hidden set is stored on the
@@ -97,20 +97,20 @@ interface DisplayBadge {
 }
 
 function ManageView() {
-    // Native badges come from a hook → must be called unconditionally, up top.
     let me: string | undefined;
     try {
         me = UserStore.getCurrentUser()?.id;
     } catch {
         me = undefined;
     }
-    const native = useNativeBadges(me);
 
+    const [native, setNative] = useState<any[]>([]);
     const [ours, setOurs] = useState<ManageableBadge[]>([]);
     const [hidden, setHidden] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        setNative(getNativeBadges(me));
         Promise.all([fetchMyBadges(), getMyHidden().catch(() => [])])
             .then(([b, h]) => { setOurs(b); setHidden(h); })
             .catch(() => showToast("Falha ao carregar suas badges.", findAssetId("CircleXIcon")))
