@@ -38,9 +38,30 @@ function brl(cents: number): string {
     return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+// Top-level page: a toggle between the donate flow and the custom-badge manager
+// (create / my badges). The badge manager UI is laid out to match desktop but is
+// not wired to login yet — the user will decide the badge-creation flow later.
+export default function DonatePage() {
+    const [tab, setTab] = useState<"donate" | "badges">("donate");
+
+    return (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 14 }}>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                    <Button size="md" variant={tab === "donate" ? "primary" : "secondary"} text="Doar" onPress={() => setTab("donate")} />
+                </View>
+                <View style={{ flex: 1 }}>
+                    <Button size="md" variant={tab === "badges" ? "primary" : "secondary"} text="Custom Badges" onPress={() => setTab("badges")} />
+                </View>
+            </View>
+            {tab === "donate" ? <DonateView /> : <BadgesView />}
+        </ScrollView>
+    );
+}
+
 // No login: donations are attributed straight to your Discord id, which the
 // backend grants the badge to once the charge is paid.
-export default function DonatePage() {
+function DonateView() {
     const [method, setMethod] = useState<PayMethod>("pix");
     const [amount, setAmount] = useState("10");
     const [loading, setLoading] = useState(false);
@@ -107,22 +128,22 @@ export default function DonatePage() {
 
     if (result && status === "paid") {
         return (
-            <ScrollView contentContainerStyle={{ padding: 16, gap: 14, alignItems: "center" }}>
+            <View style={{ gap: 14, alignItems: "center" }}>
                 <Text variant="display-lg/bold" style={{ color: "#3ba55d" }}>✓</Text>
                 <Text variant="heading-lg/bold">Pagamento confirmado!</Text>
                 <Text variant="text-md/normal" color="text-muted">Muito obrigado pelo apoio ao Pixelcord. 💜</Text>
                 <Button size="lg" variant="primary" text="Voltar" onPress={reset} />
-            </ScrollView>
+            </View>
         );
     }
 
     if (result && status != null && DONE_STATES.includes(status)) {
         return (
-            <ScrollView contentContainerStyle={{ padding: 16, gap: 14, alignItems: "center" }}>
+            <View style={{ gap: 14, alignItems: "center" }}>
                 <Text variant="heading-lg/bold">Pagamento não concluído</Text>
                 <Text variant="text-md/normal" color="text-muted">A cobrança expirou ou foi cancelada. Você pode gerar outra.</Text>
                 <Button size="lg" variant="primary" text="Gerar outra" onPress={reset} />
-            </ScrollView>
+            </View>
         );
     }
 
@@ -130,7 +151,7 @@ export default function DonatePage() {
         const isLtc = result.kind === "ltc";
         const code = isLtc ? result.address! : result.pixCopyPaste!;
         return (
-            <ScrollView contentContainerStyle={{ padding: 16, gap: 12, alignItems: "center" }}>
+            <View style={{ gap: 12, alignItems: "center" }}>
                 {result.qrImage && (
                     <Image
                         source={{ uri: result.qrImage }}
@@ -161,12 +182,12 @@ export default function DonatePage() {
                 />
                 <Text variant="text-sm/normal" color="text-muted">⏳ Aguardando {isLtc ? "confirmação na rede" : "pagamento"}…</Text>
                 <Button size="md" variant="secondary" text="Cancelar" onPress={reset} />
-            </ScrollView>
+            </View>
         );
     }
 
     return (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 14 }}>
+        <View style={{ gap: 14 }}>
             <Text variant="text-md/normal" color="text-muted">
                 Sua doação ajuda no desenvolvimento do Pixelcord — via PIX ou Litecoin. Cada R$ 10,00
                 dá direito a 1 Custom Badge. A badge vai pra sua conta do Discord assim que o pagamento
@@ -209,6 +230,56 @@ export default function DonatePage() {
                 text={method === "ltc" ? "Gerar Litecoin" : "Gerar PIX"}
                 onPress={generate}
             />
-        </ScrollView>
+        </View>
+    );
+}
+
+// Custom-badge manager — laid out like the desktop CustomBadgeSection (credits,
+// "Criar Custom Badge", "Minhas Custom Badges"). NOT wired to login yet: the
+// create button just explains it needs login, which the user will design later.
+function BadgesView() {
+    const [tooltip, setTooltip] = useState("");
+    const [image, setImage] = useState("");
+
+    const notReady = () => showToast(
+        "Login ainda não conectado — em breve.",
+        findAssetId("CircleInformationIcon-primary") ?? findAssetId("ic_info")
+    );
+
+    return (
+        <View style={{ gap: 14 }}>
+            <Text variant="heading-lg/bold">Custom Badge</Text>
+            <Text variant="text-md/normal" color="text-muted">
+                A cada R$ 10,00 doados você ganha 1 Custom Badge. Envie uma imagem (até 5 MB) — toda
+                badge passa por aprovação.
+            </Text>
+
+            <Card style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 14 }}>
+                <Text variant="display-md/bold">—</Text>
+                <Text variant="text-md/medium" color="text-muted">badge(s) disponível(is)</Text>
+            </Card>
+
+            <Text variant="eyebrow">Nome da badge</Text>
+            <TextInput value={tooltip} onChange={setTooltip} placeholder="Ex.: Apoiador Pixelcord" isClearable />
+
+            <Text variant="eyebrow">Link da imagem</Text>
+            <TextInput value={image} onChange={setImage} placeholder="https://…/badge.png" isClearable />
+
+            <Button
+                size="lg"
+                variant="primary"
+                text="Criar Custom Badge"
+                icon={findAssetId("PlusLargeIcon") ?? findAssetId("PlusIcon")}
+                onPress={notReady}
+            />
+
+            <Text variant="heading-lg/bold" style={{ marginTop: 8 }}>Minhas Custom Badges</Text>
+            <Card style={{ padding: 16, alignItems: "center" }}>
+                <Text variant="text-md/medium" color="text-muted">Você ainda não tem custom badges.</Text>
+            </Card>
+            <Text variant="text-sm/normal" color="text-muted">
+                Entre com o Discord para criar e gerenciar suas badges. (Login será conectado em breve.)
+            </Text>
+        </View>
     );
 }
