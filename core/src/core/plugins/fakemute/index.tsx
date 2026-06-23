@@ -5,7 +5,7 @@ import { showToast } from "@lib/ui/toasts";
 import { findByProps, findByStoreName } from "@metro";
 import { messageUtil } from "@metro/common";
 import { createElement, useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text } from "react-native";
 
 import { defineCorePlugin } from "..";
 
@@ -154,20 +154,16 @@ function isMic(el: any): boolean {
 
 function wrapMic(_args: unknown[], ret: any) {
     try {
-        if (isMic(ret)) {
-            // Keep the mic's slot EXACTLY the same size (so the control bar doesn't
-            // re-center and lift it), and float our button just to its right via
-            // absolute positioning — vertically centered to the mic.
-            return createElement(
-                View,
-                { style: { justifyContent: "center", alignItems: "center" } },
-                ret,
-                createElement(
-                    View,
-                    { style: { position: "absolute", left: "100%", paddingLeft: 14, top: 0, bottom: 0, justifyContent: "center" } },
-                    createElement(FakeMuteButton, { key: "px-fakemute" })
-                )
-            );
+        // The control bar renders its buttons as a children ARRAY. Find the mic in
+        // that array (possibly wrapped one level) and splice our button in right
+        // after it — so the bar gives it a real slot with native spacing/alignment
+        // (floating it absolutely overlapped the neighbouring button instead).
+        const children = ret?.props?.children;
+        if (Array.isArray(children)) {
+            const i = children.findIndex((c: any) => isMic(c) || isMic(c?.props?.children));
+            if (i !== -1 && !children.some((c: any) => c?.key === "px-fakemute")) {
+                children.splice(i + 1, 0, createElement(FakeMuteButton, { key: "px-fakemute" }));
+            }
         }
     } catch { /* never break the voice panel */ }
 }
