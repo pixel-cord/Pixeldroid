@@ -320,5 +320,5 @@ export const EQUICORD_CONTRIBUTORS: Record<string, string> = {
 
 export const PIXELCORD_CONTRIBUTORS: Record<string, string> = {
     "73598582153805824": "myvings",
-    "1499140821696647301": "outlayer"
+    "1499140821696647301": "luvygor"
 };

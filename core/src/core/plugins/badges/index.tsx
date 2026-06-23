@@ -210,7 +210,7 @@ export default defineCorePlugin({
         name: "Badges",
         version: "1.1.0",
         description: "Adds Pixelcord, Vencord and Equicord donor + contributor badges to profiles. Hide the ones you don't want, copy badge images, and donate (PIX/Litecoin) right from settings.",
-        authors: [{ name: "outlayer", id: "1499140821696647301" }]
+        authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
     SettingsComponent,
     start() {

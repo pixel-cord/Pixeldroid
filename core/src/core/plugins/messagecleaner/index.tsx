@@ -22,7 +22,7 @@ export default defineCorePlugin({
         name: "MessageCleaner",
         version: "1.1.0",
         description: "Apaga suas próprias mensagens em massa no chat atual. Use /clean para abrir o painel (filtros por tipo, texto, limite e velocidade). Viola o ToS do Discord — use por sua conta e risco.",
-        authors: [{ name: "outlayer", id: "1499140821696647301" }]
+        authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
     start() {
         unregister = registerCommand({

@@ -95,7 +95,7 @@ export default defineCorePlugin({
         name: "AnonymiseFileNames",
         version: "1.0.0",
         description: "Troca o nome dos arquivos que você envia por um nome anônimo (aleatório, data ou fixo), mantendo a extensão.",
-        authors: [{ name: "outlayer", id: "1499140821696647301" }]
+        authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
     SettingsComponent,
     start() {

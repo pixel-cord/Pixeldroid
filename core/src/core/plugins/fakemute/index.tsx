@@ -183,7 +183,7 @@ export default defineCorePlugin({
         name: "FakeMute",
         version: "1.0.0",
         description: "Adds a toggle next to the mic in the voice panel (also /fakemute): turn it on, then use Discord's normal mute & deafen — others see you muted/deafened while your mic keeps transmitting and you keep hearing.",
-        authors: [{ name: "outlayer", id: "1499140821696647301" }]
+        authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
     start() {
         MediaEngineStore?.addChangeListener?.(onMediaChange);

@@ -273,7 +273,7 @@ export default defineCorePlugin({
         name: "MoreConnections",
         version: "1.0.0",
         description: "Adicione conexões extras no perfil (Instagram, Last.fm) que aparecem pra todo mundo no Pixelcord. Sincroniza com o desktop.",
-        authors: [{ name: "outlayer", id: "1499140821696647301" }]
+        authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
     SettingsComponent,
     start() {
