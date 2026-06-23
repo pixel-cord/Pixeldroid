@@ -1,9 +1,10 @@
 import { after } from "@lib/api/patcher";
 import { findByProps, findByStoreName } from "@metro";
 import { Text as MText } from "@metro/common/components";
-import { View } from "react-native";
+import { Image, View } from "react-native";
 
 import { defineCorePlugin } from "..";
+import { FRIENDS_ICON } from "./icon";
 
 // FriendsSince (mobile). Shows the date you became friends with someone in their
 // profile, like the desktop plugin. We jsx-wrap the profile's About-me/Bio card
@@ -34,7 +35,14 @@ function FriendsSinceLine({ userId }: { userId: string; }) {
     return (
         <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, gap: 4 }}>
             <MText variant="eyebrow" color="text-muted">Amigos desde</MText>
-            <MText variant="text-md/semibold">🤝 {text}</MText>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Image
+                    source={{ uri: FRIENDS_ICON }}
+                    resizeMode="contain"
+                    style={{ width: 16, height: 16, tintColor: "#b5bac1" }}
+                />
+                <MText variant="text-md/semibold">{text}</MText>
+            </View>
         </View>
     );
 }
