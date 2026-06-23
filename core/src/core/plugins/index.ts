@@ -11,7 +11,8 @@ export const getCorePlugins = (): Record<string, CorePlugin> => ({
     "pixelcord.badges": require("./badges"),
     "pixelcord.notrack": require("./notrack"),
     "pixelcord.silenttyping": require("./silenttyping"),
-    "pixelcord.noreplymention": require("./noreplymention")
+    "pixelcord.noreplymention": require("./noreplymention"),
+    "pixelcord.fakemute": require("./fakemute")
 });
 
 /**
