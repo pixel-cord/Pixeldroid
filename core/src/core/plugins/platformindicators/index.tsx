@@ -20,6 +20,20 @@ const PresenceStore = findByStoreName("PresenceStore");
 const UserStore = findByStoreName("UserStore");
 const jsxRuntime = findByProps("jsx", "jsxs");
 
+// Resolve the other user in a 1:1 DM channel (skip group DMs / guild channels).
+function dmRecipient(channel: any): string | null {
+    if (!channel) return null;
+    if (channel.type !== undefined && channel.type !== 1) return null; // 1 = DM
+    const r = channel.recipients;
+    if (Array.isArray(r) && r.length === 1) {
+        return typeof r[0] === "string" ? r[0] : (r[0]?.id ?? null);
+    }
+    if (typeof channel.getRecipientId === "function") {
+        try { return channel.getRecipientId(); } catch { /* ignore */ }
+    }
+    return null;
+}
+
 const STATUS_COLOR: Record<string, string> = {
     online: "#23A55A",
     idle: "#F0B232",
@@ -109,18 +123,33 @@ function inject(args: any[], ret: any) {
 
         if (name === "UserProfilePrimaryInfo") { tagProfile(ret); return; }
 
-        // DM list / DM header: ChannelTitle carries the recipient's userId (guild
-        // channels don't), so a present userId means it's a DM.
-        if (name === "ChannelTitle") {
-            const dmUser = args?.[1]?.userId;
-            if (!dmUser || !storage.dms) return;
-            if (!storage.bots && isBot(dmUser)) return;
+        const wrap = (userId: string) => {
+            if (!userId) return;
+            if (!storage.bots && isBot(userId)) return;
             return (
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
                     {ret}
-                    <Indicators userId={dmUser} />
+                    <Indicators userId={userId} />
                 </View>
             );
+        };
+
+        // DM list on the home screen: each conversation row is a ChannelRowPreview,
+        // whose `channel` is the DM channel — resolve the other user from it.
+        if (name === "ChannelRowPreview") {
+            if (!storage.dms) return;
+            const uid = dmRecipient(args?.[1]?.channel);
+            if (!uid) return;
+            return wrap(uid);
+        }
+
+        // Server member list: each member's sub-label (status line) carries the
+        // full user object — reliable per-member anchor.
+        if (name === "UserRowSubLabel") {
+            if (!storage.elsewhere) return;
+            const uid = args?.[1]?.user?.id;
+            if (!uid) return;
+            return wrap(uid);
         }
 
         if (name !== "Username" && name !== "DisplayName") return;
@@ -130,14 +159,7 @@ function inject(args: any[], ret: any) {
 
         const inProfile = currentLoc === "profile";
         if (inProfile ? !storage.profile : !storage.elsewhere) return;
-        if (!storage.bots && isBot(userId)) return;
-
-        return (
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-                {ret}
-                <Indicators userId={userId} />
-            </View>
-        );
+        return wrap(userId);
     } catch {
         return;
     }
@@ -187,7 +209,7 @@ export default defineCorePlugin({
     manifest: {
         id: "pixelcord.platformindicators",
         name: "PlatformIndicators",
-        version: "1.2.0",
+        version: "1.2.1",
         description: "Mostra a plataforma (celular/web/desktop/console) em que a pessoa está online, do lado do nome.",
         authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
