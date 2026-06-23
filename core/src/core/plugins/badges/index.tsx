@@ -3,7 +3,7 @@ import { after } from "@lib/api/patcher";
 import { createStorage, useObservable } from "@lib/api/storage";
 import { showToast } from "@lib/ui/toasts";
 import { lazyDestructure } from "@lib/utils/lazy";
-import { findByName, findByProps } from "@metro";
+import { findByName, findByProps, findByStoreName } from "@metro";
 import { clipboard, url } from "@metro/common";
 import { TableRow, TableRowGroup, TableSwitchRow } from "@metro/common/components";
 import { useEffect, useState } from "react";
@@ -13,6 +13,7 @@ import { defineCorePlugin } from "..";
 import {
     API_URL,
     BADGE_FEEDS,
+    BASE_URL,
     EQUICORD_CONTRIBUTOR_BADGE,
     PIXELCORD_CONTRIBUTOR_BADGE,
     VENCORD_CONTRIBUTOR_BADGE
@@ -101,8 +102,10 @@ function fetchBadgeMap(): Promise<Record<string, PixelcordBadge[]>> {
 // Per-user set of badge ids the OWNER hid (server-side, synced with desktop).
 // Covers both our badge ids and Discord's native ones (staff, premium, …), so a
 // hidden badge disappears for every Pixelcord viewer — exactly like the PC client.
-const hiddenCache: Record<string, string[]> = {};
-const hiddenPromises: Record<string, Promise<string[]>> = {};
+let hiddenCache: Record<string, string[]> = {};
+let hiddenPromises: Record<string, Promise<string[]>> = {};
+
+const UserProfileStore = findByStoreName("UserProfileStore");
 
 function fetchHidden(userId: string): Promise<string[]> {
     if (hiddenCache[userId]) return Promise.resolve(hiddenCache[userId]);
@@ -111,6 +114,39 @@ function fetchHidden(userId: string): Promise<string[]> {
         .then((d: Record<string, string[]>) => (hiddenCache[userId] = d?.[userId] ?? []))
         .catch(() => (hiddenCache[userId] = []));
     return hiddenPromises[userId];
+}
+
+// Drop cached hidden sets so the next profile render refetches, and nudge open
+// profiles to re-render. Called on our own toggle (instant) and by the version
+// poll (covers hides/unhides done elsewhere, e.g. on PC) — no app restart needed.
+export function invalidateHidden(userId?: string) {
+    if (userId) {
+        delete hiddenCache[userId];
+        delete hiddenPromises[userId];
+    } else {
+        hiddenCache = {};
+        hiddenPromises = {};
+    }
+    try { (UserProfileStore as any)?.emitChange?.(); } catch { /* noop */ }
+}
+
+// Poll the lightweight version counter (same one the desktop uses). When it
+// changes, anyone's hidden set / the donor feeds may have changed, so refresh.
+let versionPoll: any = null;
+let lastVersion: number | null = null;
+
+async function pollVersion() {
+    try {
+        const { version } = await fetch(`${BASE_URL}/badges/version`).then(r => r.json());
+        if (typeof version !== "number") return;
+        if (lastVersion === null) { lastVersion = version; return; }
+        if (version !== lastVersion) {
+            lastVersion = version;
+            badgeMap = null;
+            badgeMapPromise = null;
+            invalidateHidden();
+        }
+    } catch { /* backend unreachable; retry next tick */ }
 }
 
 // Long-press / tap context menu for a single badge: copy its image, or jump to
@@ -178,6 +214,11 @@ export default defineCorePlugin({
     },
     SettingsComponent,
     start() {
+        // Auto-refresh hidden sets / feeds without a restart (matches desktop's 20s poll).
+        lastVersion = null;
+        clearInterval(versionPoll);
+        versionPoll = setInterval(pollVersion, 20000);
+
         const propHolder = {} as Record<string, any>;
 
         // Inject the badge image (and press handler) by matching the rendered
@@ -263,6 +304,8 @@ export default defineCorePlugin({
         }));
     },
     stop() {
+        clearInterval(versionPoll);
+        versionPoll = null;
         unpatchers.forEach(u => u?.());
         unpatchers = [];
     }

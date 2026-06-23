@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Image, ScrollView, View } from "react-native";
 
 import { defineCorePlugin } from "..";
+import { invalidateHidden } from "../badges";
 import { authStorage, clearToken, isAuthed, loginWithDiscord } from "../badges/lib/auth";
 import LoginWebView from "../badges/lib/LoginWebView";
 import { getMyHidden, setMyHidden } from "./api";
@@ -138,7 +139,11 @@ function ManageView() {
     function toggle(id: string, visible: boolean) {
         const next = visible ? hidden.filter(x => x !== id) : [...hidden, id];
         setHidden(next);
-        setMyHidden(next).catch(e => showToast(`Falha ao salvar: ${e instanceof Error ? e.message : e}`, findAssetId("CircleXIcon")));
+        // Refresh the rendered badges right away (no restart) for our own profile.
+        invalidateHidden(me);
+        setMyHidden(next)
+            .then(() => invalidateHidden(me))
+            .catch(e => showToast(`Falha ao salvar: ${e instanceof Error ? e.message : e}`, findAssetId("CircleXIcon")));
     }
 
     return (
