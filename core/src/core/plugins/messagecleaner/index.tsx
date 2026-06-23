@@ -1,27 +1,70 @@
 import { registerCommand } from "@lib/api/commands";
+import { after } from "@lib/api/patcher";
 import { showSheet } from "@lib/ui/sheets";
+import { findByName, findByStoreName } from "@metro";
 import { messageUtil } from "@metro/common";
+import { Text } from "@metro/common/components";
+import { Pressable, View } from "react-native";
 
 import { defineCorePlugin } from "..";
 import CleanerPanel, { CLEANER_SHEET_KEY } from "./CleanerPanel";
 
 // Port of the desktop MessageCleaner: bulk-delete your own messages in the
-// current channel. Trigger is `/clean`, which opens a clean bottom-sheet panel
-// (type filters, "contains", limit, speed, live progress) — a tidier take on the
-// desktop modal. A chat-bar button can be added later via UI injection.
+// current channel. Triggered by `/clean` OR a small "🧹 Limpar" button injected
+// into the chat input's context bar (ChatInputContextBar — the proven mobile
+// injection point, used by ReactionBar: after("default", …) then unshift into
+// children). Both open the same bottom-sheet panel.
 //
 // ⚠️ Bulk self-deletion technically violates Discord's ToS — opt-in, use at your
 // own risk.
+
+const ChatInputContextBar: any = findByName("ChatInputContextBar", false);
+const SelectedChannelStore: any = findByStoreName("SelectedChannelStore");
+const ChannelStore: any = findByStoreName("ChannelStore");
+
+function openCleaner(channelId: string) {
+    const ch = ChannelStore?.getChannel?.(channelId);
+    showSheet(CLEANER_SHEET_KEY, CleanerPanel, {
+        channelId,
+        channelName: ch?.name || "Mensagem Direta"
+    });
+}
+
+// Small right-aligned button shown above the chat input.
+function CleanerButton() {
+    const channelId = SelectedChannelStore?.getChannelId?.();
+    if (!channelId) return null;
+    return (
+        <View style={{ width: "100%", alignItems: "flex-end", paddingHorizontal: 12, paddingTop: 4 }}>
+            <Pressable
+                onPress={() => openCleaner(channelId)}
+                style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 5,
+                    backgroundColor: "rgba(127,127,127,0.18)",
+                    borderRadius: 14,
+                    paddingVertical: 5,
+                    paddingHorizontal: 12
+                }}
+            >
+                <Text variant="text-sm/semibold" style={{ color: "#dbdee1" }}>🧹 Limpar</Text>
+            </Pressable>
+        </View>
+    );
+}
+
 export const preenabled = false;
 
 let unregister: (() => void) | undefined;
+let unpatchBar: (() => boolean) | undefined;
 
 export default defineCorePlugin({
     manifest: {
         id: "pixelcord.messagecleaner",
         name: "MessageCleaner",
-        version: "1.1.1",
-        description: "Apaga suas próprias mensagens em massa no chat atual. Use /clean para abrir o painel (filtros por tipo, texto, limite e velocidade). Viola o ToS do Discord — use por sua conta e risco.",
+        version: "1.2.0",
+        description: "Apaga suas próprias mensagens em massa no chat atual. Use /clean ou o botão 🧹 acima do campo de texto. Viola o ToS do Discord — use por sua conta e risco.",
         authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
     start() {
@@ -36,15 +79,25 @@ export default defineCorePlugin({
                     messageUtil.sendBotMessage(ctx.channel.id, "Não consegui identificar este chat.");
                     return;
                 }
-                showSheet(CLEANER_SHEET_KEY, CleanerPanel, {
-                    channelId: channel.id,
-                    channelName: channel.name || "Mensagem Direta"
-                });
+                openCleaner(channel.id);
             }
         });
+
+        // Chat-bar button.
+        if (ChatInputContextBar) {
+            unpatchBar = after("default", ChatInputContextBar, (_args: unknown[], ret: any) => {
+                try {
+                    const kids = ret?.props?.children;
+                    if (Array.isArray(kids)) kids.unshift(<CleanerButton key="pc-cleaner-btn" />);
+                    else if (ret?.props) ret.props.children = [<CleanerButton key="pc-cleaner-btn" />, kids];
+                } catch { /* ignore */ }
+            });
+        }
     },
     stop() {
         unregister?.();
         unregister = undefined;
+        unpatchBar?.();
+        unpatchBar = undefined;
     }
 });
