@@ -1,13 +1,13 @@
 import { findAssetId } from "@lib/api/assets";
 import { useObservable } from "@lib/api/storage";
 import { showToast } from "@lib/ui/toasts";
-import { url } from "@metro/common";
 import { Button, FormSwitch, Text, TextInput } from "@metro/common/components";
 import { useEffect, useState } from "react";
 import { Image, ScrollView, View } from "react-native";
 
 import { defineCorePlugin } from "..";
-import { authStorage, clearToken, getAuthorizeUrl, isAuthed, setToken } from "../badges/lib/auth";
+import { authStorage, clearToken, isAuthed, setToken } from "../badges/lib/auth";
+import LoginWebView from "../badges/lib/LoginWebView";
 import { getMyHidden, setMyHidden } from "./api";
 import { fetchMyBadges, ManageableBadge } from "./feeds";
 
@@ -15,15 +15,17 @@ import { fetchMyBadges, ManageableBadge } from "./feeds";
 // backend, so what you hide here also hides on desktop (and vice-versa).
 
 function LoginView() {
+    const [webOpen, setWebOpen] = useState(false);
+    const [manual, setManual] = useState(false);
     const [pasted, setPasted] = useState("");
-    const [busy, setBusy] = useState(false);
 
-    async function openLogin() {
-        setBusy(true);
-        const link = await getAuthorizeUrl();
-        setBusy(false);
-        if (!link) return showToast("Não consegui falar com a API do Pixelcord.", findAssetId("CircleXIcon"));
-        url.openURL(link);
+    // In-app Discord login — captures the token automatically, no copy/paste.
+    if (webOpen) {
+        return (
+            <View style={{ flex: 1 }}>
+                <LoginWebView onDone={() => { setWebOpen(false); showToast("Conectado! 💜", findAssetId("CircleCheckIcon-primary")); }} />
+            </View>
+        );
     }
 
     return (
@@ -31,18 +33,24 @@ function LoginView() {
             <Text variant="heading-lg/bold">Esconder badges 🙈</Text>
             <Text variant="text-md/normal" color="text-muted">
                 Entre com o Discord pra escolher quais das SUAS badges esconder de todo mundo no
-                Pixelcord. Toque em "Entrar", autorize, e o site vai te mostrar um token — copie e
-                cole aqui. O que você esconder também vale no PC (fica salvo na sua conta).
+                Pixelcord. É tudo dentro do app — você só autoriza, sem copiar nada. O que você
+                esconder também vale no PC (fica salvo na sua conta).
             </Text>
-            <Button size="lg" variant="primary" loading={busy} text="Entrar com Discord" icon={findAssetId("LinkIcon")} onPress={openLogin} />
-            <TextInput label="Token" placeholder="Cole o token aqui" value={pasted} onChange={setPasted} isClearable />
-            <Button
-                size="lg"
-                variant="secondary"
-                disabled={!pasted.trim()}
-                text="Salvar token"
-                onPress={() => { setToken(pasted.trim()); showToast("Conectado! 💜", findAssetId("CircleCheckIcon-primary")); }}
-            />
+            <Button size="lg" variant="primary" text="Entrar com Discord" icon={findAssetId("LinkIcon")} onPress={() => setWebOpen(true)} />
+
+            <Button size="sm" variant="tertiary" text={manual ? "Esconder opção manual" : "Problemas? Colar token manualmente"} onPress={() => setManual(!manual)} />
+            {manual && (
+                <>
+                    <TextInput label="Token" placeholder="Cole o token aqui" value={pasted} onChange={setPasted} isClearable />
+                    <Button
+                        size="md"
+                        variant="secondary"
+                        disabled={!pasted.trim()}
+                        text="Salvar token"
+                        onPress={() => { setToken(pasted.trim()); showToast("Conectado! 💜", findAssetId("CircleCheckIcon-primary")); }}
+                    />
+                </>
+            )}
         </ScrollView>
     );
 }
