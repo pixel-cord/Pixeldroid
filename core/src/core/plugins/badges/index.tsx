@@ -4,13 +4,12 @@ import { createStorage, useObservable } from "@lib/api/storage";
 import { showToast } from "@lib/ui/toasts";
 import { lazyDestructure } from "@lib/utils/lazy";
 import { findByName, findByProps } from "@metro";
-import { clipboard, NavigationNative, url } from "@metro/common";
+import { clipboard, url } from "@metro/common";
 import { TableRow, TableRowGroup, TableSwitchRow } from "@metro/common/components";
 import { useEffect, useState } from "react";
 import { ScrollView } from "react-native";
 
 import { defineCorePlugin } from "..";
-import DonatePage from "./DonatePage";
 import {
     BADGE_FEEDS,
     EQUICORD_CONTRIBUTOR_BADGE,
@@ -113,12 +112,6 @@ let unpatchers: Array<() => boolean> = [];
 
 function SettingsComponent() {
     useObservable([prefs]);
-    const navigation = NavigationNative.useNavigation();
-
-    const openDonate = () => navigation.push("BUNNY_CUSTOM_PAGE", {
-        title: "Apoiar o Pixelcord",
-        render: () => <DonatePage />
-    });
 
     const rows = [
         ...BADGE_FEEDS.map(f => ({ key: f.key, name: f.name })),
@@ -127,15 +120,6 @@ function SettingsComponent() {
 
     return (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: 16, gap: 16 }}>
-            <TableRowGroup title="Support Pixelcord">
-                <TableRow
-                    label="Donate"
-                    subLabel="Apoie via PIX ou Litecoin — cada R$ 10 dá direito a 1 Custom Badge"
-                    icon={<TableRow.Icon source={findAssetId("HeartIcon") ?? findAssetId("StaffBadgeIcon")} />}
-                    arrow
-                    onPress={openDonate}
-                />
-            </TableRowGroup>
             <TableRowGroup title="Visible Badges">
                 {rows.map(f => (
                     <TableSwitchRow

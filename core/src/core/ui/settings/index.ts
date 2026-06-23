@@ -22,6 +22,12 @@ export default function initSettings() {
                 useTrailing: () => `(${version})`
             },
             {
+                key: "PIXELCORD_DONATE",
+                title: () => "Donate",
+                icon: findAssetId("HeartIcon") ?? findAssetId("StaffBadgeIcon") ?? { uri: PyoncordIcon },
+                render: () => import("@core/plugins/badges/DonatePage")
+            },
+            {
                 key: "BUNNY_PLUGINS",
                 title: () => Strings.PLUGINS,
                 // "ActivitiesIcon" doesn't exist on every Discord build; fall
