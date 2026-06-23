@@ -31,13 +31,14 @@ const ICON_H = 13;
 interface PISettings {
     profile: boolean;
     elsewhere: boolean;   // chat + member list
+    dms: boolean;         // DM list on the home screen
     colorMobile: boolean;
     bots: boolean;
     desktop: boolean;
     consoleIcon: string;  // "default" | "vencord" | "suncord" | "pixelcord"
 }
 const storage = createStorage<PISettings>("plugins/pixelcord.platformindicators/settings.json", {
-    dflt: { profile: true, elsewhere: false, colorMobile: true, bots: false, desktop: false, consoleIcon: "default" }
+    dflt: { profile: true, elsewhere: false, dms: false, colorMobile: true, bots: false, desktop: false, consoleIcon: "default" }
 });
 
 // Set to "profile" while UserProfilePrimaryInfo renders, so the name inside is
@@ -107,6 +108,21 @@ function inject(args: any[], ret: any) {
         const name = type?.displayName || type?.name;
 
         if (name === "UserProfilePrimaryInfo") { tagProfile(ret); return; }
+
+        // DM list / DM header: ChannelTitle carries the recipient's userId (guild
+        // channels don't), so a present userId means it's a DM.
+        if (name === "ChannelTitle") {
+            const dmUser = args?.[1]?.userId;
+            if (!dmUser || !storage.dms) return;
+            if (!storage.bots && isBot(dmUser)) return;
+            return (
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    {ret}
+                    <Indicators userId={dmUser} />
+                </View>
+            );
+        }
+
         if (name !== "Username" && name !== "DisplayName") return;
 
         const userId = args?.[1]?.userId ?? args?.[1]?.user?.id;
@@ -144,6 +160,7 @@ function SettingsComponent() {
             <TableRowGroup title="Mostrar em">
                 <TableSwitchRow label="Perfil" value={storage.profile} onValueChange={(v: boolean) => { storage.profile = v; }} />
                 <TableSwitchRow label="Chat e lista de membros" value={storage.elsewhere} onValueChange={(v: boolean) => { storage.elsewhere = v; }} />
+                <TableSwitchRow label="Lista de DMs" subLabel="Na tela inicial das conversas." value={storage.dms} onValueChange={(v: boolean) => { storage.dms = v; }} />
             </TableRowGroup>
             <TableRowGroup title="Opções">
                 <TableSwitchRow label="Colorir indicador do celular" subLabel="Deixa o ícone de celular na cor do status." value={storage.colorMobile} onValueChange={(v: boolean) => { storage.colorMobile = v; }} />
