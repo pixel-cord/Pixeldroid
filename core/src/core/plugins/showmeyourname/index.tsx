@@ -65,7 +65,7 @@ function inject(args: any[]) {
 }
 
 const MODES = [
-    { key: "both", label: "Apelido e @username", sub: "Ex: Pixie (luvygor)" },
+    { key: "both", label: "Apelido e @username", sub: "Ex: Ygor (luvygor)" },
     { key: "username", label: "Só @username", sub: "Sempre mostra o nome real da conta." },
     { key: "nick", label: "Padrão do Discord", sub: "Não muda nada (desliga o efeito)." }
 ];
@@ -75,7 +75,7 @@ function SettingsComponent() {
     return (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: 16, gap: 16 }}>
             <MText variant="text-md/normal" color="text-muted" style={{ paddingHorizontal: 16 }}>
-                Mostra o @username real da conta junto do apelido nos nomes (chat e lista de membros).
+                Mostra o @username real da conta junto do apelido no perfil da pessoa.
             </MText>
             <TableRowGroup title="Como mostrar">
                 {MODES.map(m => (
@@ -99,7 +99,7 @@ export default defineCorePlugin({
         id: "pixelcord.showmeyourname",
         name: "ShowMeYourName",
         version: "1.0.0",
-        description: "Mostra o @username real da conta junto do apelido nos nomes.",
+        description: "Mostra o @username real da conta junto do apelido no perfil.",
         authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
     SettingsComponent,
