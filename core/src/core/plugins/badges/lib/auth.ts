@@ -93,19 +93,23 @@ export async function loginWithDiscord(): Promise<void> {
     const location: string | undefined = res?.body?.location;
     if (!location) throw new Error("O Discord não retornou a autorização.");
 
-    // The backend /api/authorize?code=… exchanges the code for our token
-    // (JSON when we ask for it; plain text otherwise).
-    const tokenRes = await fetch(location, { headers: { Accept: "application/json" } });
+    // The backend /api/authorize?code=… exchanges the code for our token and
+    // returns it as PLAIN TEXT (it only emits JSON {secret} when Accept:
+    // application/json). Read it as text; tolerate a JSON wrapper just in case.
+    const tokenRes = await fetch(location);
     const text = (await tokenRes.text()).trim();
     if (!tokenRes.ok) throw new Error(text || `HTTP ${tokenRes.status}`);
 
     let token = text;
     if (text.startsWith("{")) {
-        const j = JSON.parse(text);
-        if (!j.token) throw new Error(j.message || "Resposta sem token.");
-        token = j.token;
+        try {
+            const j = JSON.parse(text);
+            token = j.secret || j.token || "";
+        } catch {
+            token = "";
+        }
     }
-    if (!/^[A-Za-z0-9]{16,}$/.test(token)) throw new Error("Token inválido recebido.");
+    if (!/^[A-Za-z0-9]{16,}$/.test(token)) throw new Error(`Token inválido: ${text.slice(0, 50)}`);
     setToken(token);
 }
 
