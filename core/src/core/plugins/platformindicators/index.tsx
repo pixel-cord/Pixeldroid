@@ -48,11 +48,10 @@ interface PISettings {
     dms: boolean;         // DM list on the home screen
     colorMobile: boolean;
     bots: boolean;
-    desktop: boolean;
     consoleIcon: string;  // "default" | "vencord" | "suncord" | "pixelcord"
 }
 const storage = createStorage<PISettings>("plugins/pixelcord.platformindicators/settings.json", {
-    dflt: { profile: true, elsewhere: false, dms: false, colorMobile: true, bots: false, desktop: false, consoleIcon: "default" }
+    dflt: { profile: true, elsewhere: false, dms: false, colorMobile: true, bots: false, consoleIcon: "default" }
 });
 
 // Set to "profile" while UserProfilePrimaryInfo renders, so the name inside is
@@ -87,7 +86,7 @@ function Indicators({ userId }: { userId: string; }) {
         () => PresenceStore.getState()?.clientStatuses?.[userId] ?? {}
     );
 
-    const platforms = Object.entries(cs).filter(([p]) => storage.desktop || p !== "desktop");
+    const platforms = Object.entries(cs);
     if (!platforms.length) return null;
 
     return (
@@ -186,7 +185,6 @@ function SettingsComponent() {
             </TableRowGroup>
             <TableRowGroup title="Opções">
                 <TableSwitchRow label="Colorir indicador do celular" subLabel="Deixa o ícone de celular na cor do status." value={storage.colorMobile} onValueChange={(v: boolean) => { storage.colorMobile = v; }} />
-                <TableSwitchRow label="Mostrar desktop" value={storage.desktop} onValueChange={(v: boolean) => { storage.desktop = v; }} />
                 <TableSwitchRow label="Mostrar bots" value={storage.bots} onValueChange={(v: boolean) => { storage.bots = v; }} />
             </TableRowGroup>
             <TableRowGroup title="Ícone do console">
@@ -209,7 +207,7 @@ export default defineCorePlugin({
     manifest: {
         id: "pixelcord.platformindicators",
         name: "PlatformIndicators",
-        version: "1.2.1",
+        version: "1.2.2",
         description: "Mostra a plataforma (celular/web/desktop/console) em que a pessoa está online, do lado do nome.",
         authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
