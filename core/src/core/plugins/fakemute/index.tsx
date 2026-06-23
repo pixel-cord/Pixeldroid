@@ -129,15 +129,15 @@ function FakeMuteButton() {
             accessibilityLabel="Fake mute"
             onPress={() => setFakeMode(!fakeMode)}
             style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
+                width: 48,
+                height: 48,
+                borderRadius: 24,
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: on ? "#f23f43" : "rgba(120,120,128,0.32)"
             }}
         >
-            <Text style={{ fontSize: 19 }}>{on ? "🤫" : "🥸"}</Text>
+            <Text style={{ fontSize: 20 }}>{on ? "🤫" : "🥸"}</Text>
         </Pressable>
     );
 }
@@ -152,18 +152,24 @@ function isMic(el: any): boolean {
     return !!t && (t.name === "VoicePanelRiveMicButton" || t.displayName === "VoicePanelRiveMicButton");
 }
 
+// The mic isn't a direct array sibling — it's nested inside its own wrapper in
+// the control-bar row. So we look for the row's children ARRAY where ONE item has
+// the mic somewhere in its subtree (within a few levels), and splice our button
+// right after that item — giving it a real, evenly-spaced slot like the others.
+function micInSubtree(node: any, depth: number): boolean {
+    if (!node || depth > 3) return false;
+    if (Array.isArray(node)) return node.some((c: any) => micInSubtree(c, depth));
+    if (typeof node !== "object") return false;
+    if (isMic(node)) return true;
+    return micInSubtree(node.props?.children, depth + 1);
+}
+
 function wrapMic(_args: unknown[], ret: any) {
     try {
-        // The control bar renders its buttons as a children ARRAY. Find the mic in
-        // that array (possibly wrapped one level) and splice our button in right
-        // after it — so the bar gives it a real slot with native spacing/alignment
-        // (floating it absolutely overlapped the neighbouring button instead).
-        const children = ret?.props?.children;
-        if (Array.isArray(children)) {
-            const i = children.findIndex((c: any) => isMic(c) || isMic(c?.props?.children));
-            if (i !== -1 && !children.some((c: any) => c?.key === "px-fakemute")) {
-                children.splice(i + 1, 0, createElement(FakeMuteButton, { key: "px-fakemute" }));
-            }
+        const ch = ret?.props?.children;
+        if (Array.isArray(ch) && ch.length >= 3 && ch.length <= 8 && !ch.some((c: any) => c?.key === "px-fakemute")) {
+            const i = ch.findIndex((c: any) => micInSubtree(c, 0));
+            if (i !== -1) ch.splice(i + 1, 0, createElement(FakeMuteButton, { key: "px-fakemute" }));
         }
     } catch { /* never break the voice panel */ }
 }
