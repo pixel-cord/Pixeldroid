@@ -6,9 +6,10 @@ import { View } from "react-native";
 import { defineCorePlugin } from "..";
 
 // FriendsSince (mobile). Shows the date you became friends with someone in their
-// profile, like the desktop plugin. We jsx-wrap the profile's Note card (always
-// present in a full profile) and prepend a small "Amigos desde …" line when the
-// viewed user is a friend. Data comes from RelationshipStore.getSince. Opt-in.
+// profile, like the desktop plugin. We jsx-wrap the profile's About-me/Bio card
+// (UserProfileAboutMeCard — it also holds "Membro desde", so it's effectively
+// always present) and append a small "Amigos desde …" line right after it, so it
+// sits just below the member-since date. Data: RelationshipStore.getSince. Opt-in.
 
 const RelationshipStore: any = findByStoreName("RelationshipStore");
 const jsxRuntime = findByProps("jsx", "jsxs");
@@ -31,7 +32,7 @@ function FriendsSinceLine({ userId }: { userId: string; }) {
     const text = since ? formatSince(since) : null;
     if (!text) return null;
     return (
-        <View style={{ paddingHorizontal: 16, paddingBottom: 10, gap: 2 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, gap: 4 }}>
             <MText variant="eyebrow" color="text-muted">Amigos desde</MText>
             <MText variant="text-md/semibold">🤝 {text}</MText>
         </View>
@@ -44,13 +45,13 @@ function inject(args: any[], ret: any) {
     try {
         const type = args?.[0];
         const name = type?.displayName || type?.name;
-        if (name !== "UserProfileNote") return;
+        if (name !== "UserProfileAboutMeCard") return;
         const userId = args?.[1]?.userId;
         if (!userId) return;
         return (
             <View>
-                <FriendsSinceLine userId={userId} />
                 {ret}
+                <FriendsSinceLine userId={userId} />
             </View>
         );
     } catch {
