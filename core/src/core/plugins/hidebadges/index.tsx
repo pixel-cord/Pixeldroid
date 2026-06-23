@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Image, ScrollView, View } from "react-native";
 
 import { defineCorePlugin } from "..";
-import { authStorage, clearToken, isAuthed, setToken } from "../badges/lib/auth";
+import { authStorage, clearToken, isAuthed, loginWithDiscord, setToken } from "../badges/lib/auth";
 import LoginWebView from "../badges/lib/LoginWebView";
 import { getMyHidden, setMyHidden } from "./api";
 import { fetchMyBadges, ManageableBadge } from "./feeds";
@@ -15,11 +15,12 @@ import { fetchMyBadges, ManageableBadge } from "./feeds";
 // backend, so what you hide here also hides on desktop (and vice-versa).
 
 function LoginView() {
+    const [busy, setBusy] = useState(false);
     const [webOpen, setWebOpen] = useState(false);
-    const [manual, setManual] = useState(false);
+    const [more, setMore] = useState(false);
     const [pasted, setPasted] = useState("");
 
-    // In-app Discord login — captures the token automatically, no copy/paste.
+    // Browser fallback — only if the native login ever fails.
     if (webOpen) {
         return (
             <View style={{ flex: 1 }}>
@@ -28,20 +29,40 @@ function LoginView() {
         );
     }
 
+    async function nativeLogin() {
+        setBusy(true);
+        try {
+            await loginWithDiscord();
+            showToast("Conectado! 💜", findAssetId("CircleCheckIcon-primary"));
+        } catch (e) {
+            showToast(`Falha ao conectar: ${e instanceof Error ? e.message : e}`, findAssetId("CircleXIcon"));
+        } finally {
+            setBusy(false);
+        }
+    }
+
     return (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 14 }}>
             <Text variant="heading-lg/bold">Esconder badges 🙈</Text>
             <Text variant="text-md/normal" color="text-muted">
-                Entre com o Discord pra escolher quais das SUAS badges esconder de todo mundo no
-                Pixelcord. É tudo dentro do app — você só autoriza, sem copiar nada. O que você
+                Escolha quais das SUAS badges esconder de todo mundo no Pixelcord. É um toque —
+                usa a sua conta do Discord que já tá logada aqui, sem copiar nada. O que você
                 esconder também vale no PC (fica salvo na sua conta).
             </Text>
-            <Button size="lg" variant="primary" text="Entrar com Discord" icon={findAssetId("LinkIcon")} onPress={() => setWebOpen(true)} />
+            <Button
+                size="lg"
+                variant="primary"
+                text={busy ? "Conectando…" : "Entrar com Discord"}
+                disabled={busy}
+                icon={findAssetId("LinkIcon")}
+                onPress={nativeLogin}
+            />
 
-            <Button size="sm" variant="tertiary" text={manual ? "Esconder opção manual" : "Problemas? Colar token manualmente"} onPress={() => setManual(!manual)} />
-            {manual && (
+            <Button size="sm" variant="tertiary" text={more ? "Esconder opções" : "Problemas? Outras opções"} onPress={() => setMore(!more)} />
+            {more && (
                 <>
-                    <TextInput label="Token" placeholder="Cole o token aqui" value={pasted} onChange={setPasted} isClearable />
+                    <Button size="md" variant="secondary" text="Autorizar pelo navegador" onPress={() => setWebOpen(true)} />
+                    <TextInput label="Token (manual)" placeholder="Cole o token aqui" value={pasted} onChange={setPasted} isClearable />
                     <Button
                         size="md"
                         variant="secondary"
