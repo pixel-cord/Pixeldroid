@@ -11,6 +11,7 @@ import { ScrollView } from "react-native";
 
 import { defineCorePlugin } from "..";
 import {
+    API_URL,
     BADGE_FEEDS,
     EQUICORD_CONTRIBUTOR_BADGE,
     PIXELCORD_CONTRIBUTOR_BADGE,
@@ -19,20 +20,31 @@ import {
 import { EQUICORD_CONTRIBUTORS, PIXELCORD_CONTRIBUTORS, VENCORD_CONTRIBUTORS } from "./lib/contributors";
 
 // A badge as merged from the donor feeds. `source` is the feed key (vencord /
-// equicord / pixelcord), used by the local hide filter.
+// equicord / pixelcord), used by the local hide filter. `hideId` is the
+// desktop-matching badge id (`${source}_donor_badge_${i}`) — when the profile
+// owner hides it (server-side), it must disappear here too, same as on PC.
 interface PixelcordBadge {
     badge: string;
     tooltip: string;
     source: string;
+    hideId: string;
 }
 
 // Contributor badges (shown for the hardcoded dev lists), rendered at the start
-// of the badge row like desktop. Hidden as a group under the "contributors" key.
+// of the badge row like desktop. Hidden as a group under the "contributors" key
+// locally; `hideId` is the desktop id for the server-side per-user hide.
 const CONTRIBUTOR_BADGES = [
-    { map: PIXELCORD_CONTRIBUTORS, icon: PIXELCORD_CONTRIBUTOR_BADGE, label: "Pixelcord Contributor" },
-    { map: EQUICORD_CONTRIBUTORS, icon: EQUICORD_CONTRIBUTOR_BADGE, label: "Equicord Contributor" },
-    { map: VENCORD_CONTRIBUTORS, icon: VENCORD_CONTRIBUTOR_BADGE, label: "Vencord Contributor" }
+    { map: PIXELCORD_CONTRIBUTORS, icon: PIXELCORD_CONTRIBUTOR_BADGE, label: "Pixelcord Contributor", hideId: "pixelcord_contributor_badge" },
+    { map: EQUICORD_CONTRIBUTORS, icon: EQUICORD_CONTRIBUTOR_BADGE, label: "Equicord Contributor", hideId: "equicord_contributor_badge" },
+    { map: VENCORD_CONTRIBUTORS, icon: VENCORD_CONTRIBUTOR_BADGE, label: "Vencord Contributor", hideId: "vencord_contributor_badge" }
 ];
+
+// Feed key -> desktop donor-badge id prefix (matches hidebadges/feeds.ts).
+const DONOR_PREFIX: Record<string, string> = {
+    vencord: "vencord_donor_badge",
+    equicord: "equicord_donor_badge",
+    pixelcord: "pixelcord_donor_badge"
+};
 
 const useBadgesModule = findByName("useBadges", false);
 const { showSimpleActionSheet } = lazyDestructure(() => findByProps("showSimpleActionSheet"));
@@ -73,15 +85,32 @@ function fetchBadgeMap(): Promise<Record<string, PixelcordBadge[]>> {
     ).then(results => {
         const merged: Record<string, PixelcordBadge[]> = {};
         for (const { feed, map } of results) {
+            const prefix = DONOR_PREFIX[feed.key];
             for (const userId in map) {
                 (merged[userId] ??= []).push(
-                    ...(map[userId] ?? []).map(b => ({ ...b, source: feed.key }))
+                    // index is per-feed so hideId matches the desktop scheme.
+                    ...(map[userId] ?? []).map((b, i) => ({ ...b, source: feed.key, hideId: `${prefix}_${i}` }))
                 );
             }
         }
         return (badgeMap = merged);
     }).catch(() => (badgeMap = {}));
     return badgeMapPromise;
+}
+
+// Per-user set of badge ids the OWNER hid (server-side, synced with desktop).
+// Covers both our badge ids and Discord's native ones (staff, premium, …), so a
+// hidden badge disappears for every Pixelcord viewer — exactly like the PC client.
+const hiddenCache: Record<string, string[]> = {};
+const hiddenPromises: Record<string, Promise<string[]>> = {};
+
+function fetchHidden(userId: string): Promise<string[]> {
+    if (hiddenCache[userId]) return Promise.resolve(hiddenCache[userId]);
+    hiddenPromises[userId] ??= fetch(`${API_URL}/hidden?ids=${encodeURIComponent(JSON.stringify([userId]))}`)
+        .then(r => r.json())
+        .then((d: Record<string, string[]>) => (hiddenCache[userId] = d?.[userId] ?? []))
+        .catch(() => (hiddenCache[userId] = []));
+    return hiddenPromises[userId];
 }
 
 // Long-press / tap context menu for a single badge: copy its image, or jump to
@@ -172,12 +201,28 @@ export default defineCorePlugin({
             const [badges, setBadges] = useState<PixelcordBadge[]>(
                 user && badgeMap ? badgeMap[user.userId] ?? [] : []
             );
+            const [hidden, setHidden] = useState<string[]>(
+                user ? hiddenCache[user.userId] ?? [] : []
+            );
 
             useEffect(() => {
-                if (user) fetchBadgeMap().then(map => setBadges(map[user.userId] ?? []));
+                if (user) {
+                    fetchBadgeMap().then(map => setBadges(map[user.userId] ?? []));
+                    fetchHidden(user.userId).then(setHidden);
+                }
             }, [user]);
 
             if (!user) return;
+
+            const isOwnerHidden = (id: string) => hidden.includes(id);
+
+            // Drop the profile owner's hidden NATIVE Discord badges (staff,
+            // premium, active_developer…) — same global hide as the PC client.
+            if (Array.isArray(r) && hidden.length) {
+                for (let i = r.length - 1; i >= 0; i--) {
+                    if (r[i] && isOwnerHidden(r[i].id)) r.splice(i, 1);
+                }
+            }
 
             // Build our badges, then unshift them so they sit IN FRONT of
             // Discord's native badges, matching the desktop client.
@@ -188,6 +233,7 @@ export default defineCorePlugin({
                 CONTRIBUTOR_BADGES.forEach((c, ci) => {
                     const name = c.map[user.userId];
                     if (!name) return;
+                    if (isOwnerHidden(c.hideId)) return; // owner hid it (server-side)
                     const cid = `pixelcord-${user.userId}-c${ci}`;
                     propHolder[cid] = {
                         source: { uri: c.icon },
@@ -202,6 +248,7 @@ export default defineCorePlugin({
             // Then donor badges from the feeds.
             badges.forEach((badge, i) => {
                 if (isHidden(badge.source)) return;
+                if (isOwnerHidden(badge.hideId)) return; // owner hid it (server-side)
                 const bid = `pixelcord-${user.userId}-${i}`;
                 propHolder[bid] = {
                     source: { uri: badge.badge },

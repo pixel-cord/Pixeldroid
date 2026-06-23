@@ -1,8 +1,9 @@
 import { findAssetId } from "@lib/api/assets";
 import { useObservable } from "@lib/api/storage";
 import { showToast } from "@lib/ui/toasts";
+import { findByName, findByStoreName } from "@metro";
 import { Button, FormSwitch, Text } from "@metro/common/components";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Image, ScrollView, View } from "react-native";
 
 import { defineCorePlugin } from "..";
@@ -10,6 +11,30 @@ import { authStorage, clearToken, isAuthed, loginWithDiscord } from "../badges/l
 import LoginWebView from "../badges/lib/LoginWebView";
 import { getMyHidden, setMyHidden } from "./api";
 import { fetchMyBadges, ManageableBadge } from "./feeds";
+
+const UserStore = findByStoreName("UserStore");
+const useBadgesModule = findByName("useBadges", false);
+
+// Resolve a native Discord badge's icon to an <Image> source (url or asset id).
+function nativeBadgeIcon(b: any): any {
+    if (b?.iconSrc) return { uri: b.iconSrc };
+    if (typeof b?.icon === "string") return { uri: `https://cdn.discordapp.com/badge-icons/${b.icon}.png` };
+    if (typeof b?.icon === "number") return b.icon;
+    return null;
+}
+
+// Current user's NATIVE Discord badges (staff, premium, active_developer…) so
+// they can be hidden too, matching the desktop manage UI's getAllBadges.
+// Best-effort: this drives a hook, so it must run unconditionally and never throw.
+function useNativeBadges(userId?: string): any[] {
+    let res: any = null;
+    try {
+        res = useBadgesModule?.default?.({ userId });
+    } catch {
+        res = null;
+    }
+    return Array.isArray(res) ? res : [];
+}
 
 // Hide your own badges for everyone on Pixelcord. The hidden set is stored on the
 // backend, so what you hide here also hides on desktop (and vice-versa).
@@ -65,17 +90,50 @@ function LoginView() {
     );
 }
 
+interface DisplayBadge {
+    id: string;
+    label: string;
+    icon: any;
+}
+
 function ManageView() {
-    const [badges, setBadges] = useState<ManageableBadge[]>([]);
+    // Native badges come from a hook → must be called unconditionally, up top.
+    let me: string | undefined;
+    try {
+        me = UserStore.getCurrentUser()?.id;
+    } catch {
+        me = undefined;
+    }
+    const native = useNativeBadges(me);
+
+    const [ours, setOurs] = useState<ManageableBadge[]>([]);
     const [hidden, setHidden] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         Promise.all([fetchMyBadges(), getMyHidden().catch(() => [])])
-            .then(([b, h]) => { setBadges(b); setHidden(h); })
+            .then(([b, h]) => { setOurs(b); setHidden(h); })
             .catch(() => showToast("Falha ao carregar suas badges.", findAssetId("CircleXIcon")))
             .finally(() => setLoading(false));
     }, []);
+
+    // Native Discord badges first (profile order), then our donor/contributor
+    // badges; dedupe by id. Mirrors the desktop getAllBadges list.
+    const badges = useMemo<DisplayBadge[]>(() => {
+        const seen = new Set<string>();
+        const list: DisplayBadge[] = [];
+        for (const b of native) {
+            if (!b?.id || seen.has(b.id)) continue;
+            seen.add(b.id);
+            list.push({ id: b.id, label: b.description || b.label || b.id, icon: nativeBadgeIcon(b) });
+        }
+        for (const b of ours) {
+            if (seen.has(b.id)) continue;
+            seen.add(b.id);
+            list.push({ id: b.id, label: b.label, icon: { uri: b.icon } });
+        }
+        return list;
+    }, [native, ours]);
 
     function toggle(id: string, visible: boolean) {
         const next = visible ? hidden.filter(x => x !== id) : [...hidden, id];
@@ -87,6 +145,7 @@ function ManageView() {
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
             <Text variant="text-md/normal" color="text-muted">
                 Badges desligadas somem do seu perfil pra todo mundo que usa Pixelcord (PC e celular).
+                Inclui as nativas do Discord.
             </Text>
 
             {loading ? (
@@ -98,7 +157,7 @@ function ManageView() {
                     const visible = !hidden.includes(b.id);
                     return (
                         <View key={b.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 4 }}>
-                            <Image source={{ uri: b.icon }} style={{ width: 26, height: 26, borderRadius: 6 }} />
+                            {b.icon ? <Image source={b.icon} style={{ width: 26, height: 26, borderRadius: 6 }} /> : <View style={{ width: 26, height: 26 }} />}
                             <Text variant="text-md/medium" style={{ flex: 1 }}>{b.label}</Text>
                             <FormSwitch value={visible} onValueChange={(v: boolean) => toggle(b.id, v)} />
                         </View>
