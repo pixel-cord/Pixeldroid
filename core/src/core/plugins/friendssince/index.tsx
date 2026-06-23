@@ -50,20 +50,53 @@ function FriendsSinceLine({ userId }: { userId: string; }) {
 
 let unpatchers: Array<() => boolean> = [];
 
+// Memoize one wrapper per original card component so we don't rebuild it each render.
+const wrappers = new WeakMap<Function, Function>();
+
+// Append our line into the card's RENDERED output children, so it lands inside
+// the card background just under "Membro desde".
+function appendLine(out: any, userId: string) {
+    try {
+        const kids = out?.props?.children;
+        const arr = Array.isArray(kids) ? kids.slice() : (kids != null ? [kids] : []);
+        arr.push(<FriendsSinceLine key="pc-friendssince" userId={userId} />);
+        return cloneElement(out, undefined, ...arr);
+    } catch {
+        return out;
+    }
+}
+
 function inject(args: any[], ret: any) {
     try {
         const type = args?.[0];
         const name = type?.displayName || type?.name;
         if (name !== "UserProfileAboutMeCard") return;
         const userId = args?.[1]?.userId;
-        if (!userId) return;
-        if (!RelationshipStore?.isFriend?.(userId)) return;
-        // Insert the line as a child of the card itself (not a sibling) so it
-        // shares the card background, sitting just below "Membro desde".
-        const kids = ret?.props?.children;
-        const arr = Array.isArray(kids) ? kids.slice() : (kids != null ? [kids] : []);
-        arr.push(<FriendsSinceLine key="pc-friendssince" userId={userId} />);
-        return cloneElement(ret, undefined, ...arr);
+        if (!userId || !RelationshipStore?.isFriend?.(userId)) return;
+
+        const Orig = ret?.type;
+        if (typeof Orig === "function") {
+            let W = wrappers.get(Orig);
+            if (!W) {
+                W = function (props: any) {
+                    const out = Orig(props);
+                    if (!props?.userId || !RelationshipStore?.isFriend?.(props.userId)) return out;
+                    return appendLine(out, props.userId);
+                };
+                wrappers.set(Orig, W);
+            }
+            ret.type = W;
+            return;
+        }
+
+        // Fallback: the card type isn't a plain function we can wrap — put the
+        // line right below the card so it's at least visible.
+        return (
+            <View>
+                {ret}
+                <FriendsSinceLine userId={userId} />
+            </View>
+        );
     } catch {
         return;
     }
