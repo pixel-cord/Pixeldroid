@@ -1,13 +1,15 @@
+import { findAssetId } from "@lib/api/assets";
 import { registerCommand } from "@lib/api/commands";
 import { after } from "@lib/api/patcher";
 import { showSheet } from "@lib/ui/sheets";
 import { findByName, findByStoreName } from "@metro";
 import { messageUtil } from "@metro/common";
 import { Text } from "@metro/common/components";
-import { Pressable, View } from "react-native";
+import { Image, Pressable, View } from "react-native";
 
 import { defineCorePlugin } from "..";
 import CleanerPanel, { CLEANER_SHEET_KEY } from "./CleanerPanel";
+import { TRASH_ICON_PNG } from "./icon";
 
 // Port of the desktop MessageCleaner: bulk-delete your own messages in the
 // current channel. Triggered by `/clean` OR a small "🧹 Limpar" button injected
@@ -21,6 +23,8 @@ import CleanerPanel, { CLEANER_SHEET_KEY } from "./CleanerPanel";
 const ChatInputContextBar: any = findByName("ChatInputContextBar", false);
 const SelectedChannelStore: any = findByStoreName("SelectedChannelStore");
 const ChannelStore: any = findByStoreName("ChannelStore");
+// Native Discord icon (vector, themeable) — never an emoji.
+const TRASH_ICON = findAssetId("TrashIcon") ?? findAssetId("ic_trash") ?? findAssetId("trash");
 
 function openCleaner(channelId: string) {
     const ch = ChannelStore?.getChannel?.(channelId);
@@ -41,14 +45,19 @@ function CleanerButton() {
                 style={{
                     flexDirection: "row",
                     alignItems: "center",
-                    gap: 5,
+                    gap: 6,
                     backgroundColor: "rgba(127,127,127,0.18)",
                     borderRadius: 14,
                     paddingVertical: 5,
                     paddingHorizontal: 12
                 }}
             >
-                <Text variant="text-sm/semibold" style={{ color: "#dbdee1" }}>🧹 Limpar</Text>
+                <Image
+                    source={TRASH_ICON ?? { uri: TRASH_ICON_PNG }}
+                    resizeMode="contain"
+                    style={{ width: 15, height: 15, tintColor: "#dbdee1" }}
+                />
+                <Text variant="text-sm/semibold" style={{ color: "#dbdee1" }}>Limpar</Text>
             </Pressable>
         </View>
     );
@@ -64,7 +73,7 @@ export default defineCorePlugin({
         id: "pixelcord.messagecleaner",
         name: "MessageCleaner",
         version: "1.2.0",
-        description: "Apaga suas próprias mensagens em massa no chat atual. Use /clean ou o botão 🧹 acima do campo de texto. Viola o ToS do Discord — use por sua conta e risco.",
+        description: "Apaga suas próprias mensagens em massa no chat atual. Use /clean ou o botão Limpar acima do campo de texto. Viola o ToS do Discord — use por sua conta e risco.",
         authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
     start() {
