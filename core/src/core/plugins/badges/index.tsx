@@ -1,50 +1,47 @@
-import { after } from "@lib/api/patcher";
 import { findAssetId } from "@lib/api/assets";
+import { after } from "@lib/api/patcher";
 import { createStorage, useObservable } from "@lib/api/storage";
 import { showToast } from "@lib/ui/toasts";
 import { lazyDestructure } from "@lib/utils/lazy";
 import { findByName, findByProps } from "@metro";
-import { clipboard, url } from "@metro/common";
+import { clipboard, NavigationNative, url } from "@metro/common";
 import { TableRow, TableRowGroup, TableSwitchRow } from "@metro/common/components";
 import { useEffect, useState } from "react";
 import { ScrollView } from "react-native";
 
 import { defineCorePlugin } from "..";
+import DonatePage from "./DonatePage";
+import {
+    BADGE_FEEDS,
+    EQUICORD_CONTRIBUTOR_BADGE,
+    PIXELCORD_CONTRIBUTOR_BADGE,
+    VENCORD_CONTRIBUTOR_BADGE
+} from "./lib/constants";
+import { EQUICORD_CONTRIBUTORS, PIXELCORD_CONTRIBUTORS, VENCORD_CONTRIBUTORS } from "./lib/contributors";
 
-// Pixelcord badge feed. Each feed is a JSON object keyed by user id, each value
-// an array of { badge (image url), tooltip (label) }. Same endpoints the desktop
-// client aggregates so badges stay in sync across platforms.
+// A badge as merged from the donor feeds. `source` is the feed key (vencord /
+// equicord / pixelcord), used by the local hide filter.
 interface PixelcordBadge {
     badge: string;
     tooltip: string;
-    source: string; // which feed it came from (used by the hide-badges filter)
+    source: string;
 }
 
-// The three donor feeds: Vencord + Equicord + our own. `key` is the toggle id
-// used by the "Visible Badges" setting; `name` is the label shown there.
-const BADGE_FEEDS = [
-    { key: "vencord", name: "Vencord", url: "https://badges.vencord.dev/badges.json" },
-    { key: "equicord", name: "Equicord", url: "https://badge.equicord.org/badges.json" },
-    { key: "pixelcord", name: "Pixelcord", url: "https://api.pixelcord.com.br/badges.json" }
+// Contributor badges (shown for the hardcoded dev lists), rendered at the start
+// of the badge row like desktop. Hidden as a group under the "contributors" key.
+const CONTRIBUTOR_BADGES = [
+    { map: PIXELCORD_CONTRIBUTORS, icon: PIXELCORD_CONTRIBUTOR_BADGE, label: "Pixelcord Contributor" },
+    { map: EQUICORD_CONTRIBUTORS, icon: EQUICORD_CONTRIBUTOR_BADGE, label: "Equicord Contributor" },
+    { map: VENCORD_CONTRIBUTORS, icon: VENCORD_CONTRIBUTOR_BADGE, label: "Vencord Contributor" }
 ];
-
-// Pixelcord contributor badge — shown for the hardcoded contributor IDs below
-// (code contributors), separate from the donor feeds. Add IDs as needed.
-const CONTRIBUTOR_BADGE = "https://cdn.pixelcord.com.br/uploads/image-a005087cdafda23dabae78aae6f81908.png";
-const CONTRIBUTORS: Record<string, string> = {
-    "1499140821696647301": "Pixelcord Contributor" // outlayer
-};
-
-// Where the "Donate" button in settings (and the badge context menu) sends you.
-const DONATE_URL = "https://pixelcord.com.br";
 
 const useBadgesModule = findByName("useBadges", false);
 const { showSimpleActionSheet } = lazyDestructure(() => findByProps("showSimpleActionSheet"));
 const { hideActionSheet } = lazyDestructure(() => findByProps("openLazy", "hideActionSheet"));
 
-// Per-user local prefs. `hidden` maps a feed key (or "contributor") to true when
-// the user doesn't want to SEE badges from that source — purely client-side, it
-// never touches anyone else's profile.
+// Local, per-device prefs: which badge sources you don't want to SEE. Never
+// touches anyone else's profile (that's the desktop HideBadges, a different
+// thing). Keys: "vencord" / "equicord" / "pixelcord" / "contributors".
 interface BadgePrefs {
     hidden: Record<string, boolean>;
 }
@@ -60,8 +57,8 @@ function isHidden(key: string): boolean {
     }
 }
 
-// Fetch every feed once per session and merge them per user. A feed that is
-// down or blocked just contributes nothing — the others still load.
+// Fetch every donor feed once per session and merge them per user. A feed that
+// is down or blocked just contributes nothing — the others still load.
 let badgeMap: Record<string, PixelcordBadge[]> | null = null;
 let badgeMapPromise: Promise<Record<string, PixelcordBadge[]>> | null = null;
 
@@ -88,28 +85,25 @@ function fetchBadgeMap(): Promise<Record<string, PixelcordBadge[]>> {
     return badgeMapPromise;
 }
 
-// Long-press / tap context menu for a single badge: copy its image or open the
-// donor page (where you grab your own badges).
-function openBadgeSheet(badge: { badge: string; label: string; }) {
+// Long-press / tap context menu for a single badge: copy its image, or jump to
+// the donate page (where you grab your own badges).
+function openBadgeSheet(badge: { image: string; label: string; }, openDonate: () => void) {
     showSimpleActionSheet({
         key: "PixelcordBadge",
-        header: {
-            title: badge.label,
-            onClose: () => hideActionSheet()
-        },
+        header: { title: badge.label, onClose: () => hideActionSheet() },
         options: [
             {
                 label: "Copy Badge Image",
                 icon: findAssetId("LinkIcon"),
                 onPress: () => {
-                    clipboard.setString(badge.badge);
+                    clipboard.setString(badge.image);
                     showToast.showCopyToClipboard();
                 }
             },
             {
-                label: "Open Donor Page",
+                label: "Open Donate Page",
                 icon: findAssetId("HeartIcon") ?? findAssetId("StaffBadgeIcon"),
-                onPress: () => url.openURL(DONATE_URL)
+                onPress: openDonate
             }
         ]
     });
@@ -119,17 +113,27 @@ let unpatchers: Array<() => boolean> = [];
 
 function SettingsComponent() {
     useObservable([prefs]);
+    const navigation = NavigationNative.useNavigation();
 
-    const rows = [...BADGE_FEEDS, { key: "contributor", name: "Pixelcord Contributor" }];
+    const openDonate = () => navigation.push("BUNNY_CUSTOM_PAGE", {
+        title: "Apoiar o Pixelcord",
+        render: () => <DonatePage />
+    });
+
+    const rows = [
+        ...BADGE_FEEDS.map(f => ({ key: f.key, name: f.name })),
+        { key: "contributors", name: "Contributor badges" }
+    ];
 
     return (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: 16, gap: 16 }}>
             <TableRowGroup title="Support Pixelcord">
                 <TableRow
                     label="Donate"
-                    subLabel="Support Pixelcord and unlock your own badges"
+                    subLabel="Apoie via PIX ou Litecoin — cada R$ 10 dá direito a 1 Custom Badge"
                     icon={<TableRow.Icon source={findAssetId("HeartIcon") ?? findAssetId("StaffBadgeIcon")} />}
-                    onPress={() => url.openURL(DONATE_URL)}
+                    arrow
+                    onPress={openDonate}
                 />
             </TableRowGroup>
             <TableRowGroup title="Visible Badges">
@@ -137,7 +141,7 @@ function SettingsComponent() {
                     <TableSwitchRow
                         key={f.key}
                         label={f.name}
-                        subLabel={`Show ${f.name} badges on profiles`}
+                        subLabel={`Show ${f.name} on profiles`}
                         icon={<TableRow.Icon source={findAssetId("StaffBadgeIcon")} />}
                         value={!isHidden(f.key)}
                         onValueChange={(v: boolean) => {
@@ -155,8 +159,8 @@ export default defineCorePlugin({
     manifest: {
         id: "pixelcord.badges",
         name: "Badges",
-        version: "1.0.0",
-        description: "Adds Pixelcord, Vencord and Equicord badges to profiles. Hide the ones you don't want, copy badge images, and donate right from settings.",
+        version: "1.1.0",
+        description: "Adds Pixelcord, Vencord and Equicord donor + contributor badges to profiles. Hide the ones you don't want, copy badge images, and donate (PIX/Litecoin) right from settings.",
         authors: [{ name: "outlayer", id: "1499140821696647301" }]
     },
     SettingsComponent,
@@ -165,8 +169,7 @@ export default defineCorePlugin({
 
         // Inject the badge image (and press handler) by matching the rendered
         // element's id directly on the JSX runtime, instead of depending on the
-        // badge component's name (e.g. "RenderedBadge"), which drifts between
-        // Discord versions. This works regardless of what renders the badge.
+        // badge component's name, which drifts between Discord versions.
         const jsxRuntime = findByProps("jsx", "jsxs");
         const inject = (_args: unknown[], ret: any) => {
             const id = ret?.props?.id;
@@ -177,46 +180,51 @@ export default defineCorePlugin({
         unpatchers.push(after("jsx", jsxRuntime, inject));
         unpatchers.push(after("jsxs", jsxRuntime, inject));
 
+        // Opening the donate page from a badge tap: there's no navigation in this
+        // scope, so route through a deep link the app understands.
+        const openDonate = () => url.openURL("https://pixelcord.com.br");
+
         unpatchers.push(after("default", useBadgesModule, ([user], r) => {
             const [badges, setBadges] = useState<PixelcordBadge[]>(
                 user && badgeMap ? badgeMap[user.userId] ?? [] : []
             );
 
             useEffect(() => {
-                if (user) {
-                    fetchBadgeMap().then(map => setBadges(map[user.userId] ?? []));
-                }
+                if (user) fetchBadgeMap().then(map => setBadges(map[user.userId] ?? []));
             }, [user]);
 
             if (!user) return;
 
-            // Build our badges then unshift them so they sit IN FRONT of
+            // Build our badges, then unshift them so they sit IN FRONT of
             // Discord's native badges, matching the desktop client.
             const ours: any[] = [];
 
-            // Contributor badge first (start position), like the desktop client.
-            if (CONTRIBUTORS[user.userId] && !isHidden("contributor")) {
-                const cid = `pixelcord-${user.userId}-c`;
-                propHolder[cid] = {
-                    source: { uri: CONTRIBUTOR_BADGE },
-                    id: "pixelcord-c",
-                    label: CONTRIBUTORS[user.userId],
-                    onPress: () => openBadgeSheet({ badge: CONTRIBUTOR_BADGE, label: CONTRIBUTORS[user.userId] })
-                };
-                ours.push({ id: cid, description: CONTRIBUTORS[user.userId], icon: "_" });
+            // Contributor badges first (start position).
+            if (!isHidden("contributors")) {
+                CONTRIBUTOR_BADGES.forEach((c, ci) => {
+                    const name = c.map[user.userId];
+                    if (!name) return;
+                    const cid = `pixelcord-${user.userId}-c${ci}`;
+                    propHolder[cid] = {
+                        source: { uri: c.icon },
+                        id: `pixelcord-c${ci}`,
+                        label: c.label,
+                        onPress: () => openBadgeSheet({ image: c.icon, label: c.label }, openDonate)
+                    };
+                    ours.push({ id: cid, description: c.label, icon: "_" });
+                });
             }
 
+            // Then donor badges from the feeds.
             badges.forEach((badge, i) => {
                 if (isHidden(badge.source)) return;
-
                 const bid = `pixelcord-${user.userId}-${i}`;
                 propHolder[bid] = {
                     source: { uri: badge.badge },
                     id: `pixelcord-${i}`,
                     label: badge.tooltip,
-                    onPress: () => openBadgeSheet({ badge: badge.badge, label: badge.tooltip })
+                    onPress: () => openBadgeSheet({ image: badge.badge, label: badge.tooltip }, openDonate)
                 };
-
                 ours.push({ id: bid, description: badge.tooltip, icon: "_" });
             });
 
