@@ -96,9 +96,16 @@ export default defineCorePlugin({
         if (ChatInputContextBar) {
             unpatchBar = after("default", ChatInputContextBar, (_args: unknown[], ret: any) => {
                 try {
-                    const kids = ret?.props?.children;
-                    if (Array.isArray(kids)) kids.unshift(<CleanerButton key="pc-cleaner-btn" />);
-                    else if (ret?.props) ret.props.children = [<CleanerButton key="pc-cleaner-btn" />, kids];
+                    const btn = <CleanerButton key="pc-cleaner-btn" />;
+                    if (ret?.props) {
+                        const kids = ret.props.children;
+                        if (Array.isArray(kids)) kids.unshift(btn);
+                        else ret.props.children = [btn, kids];
+                        return;
+                    }
+                    // The context bar renders nothing when there's no reply/edit
+                    // context — return our own thin bar so the button is always shown.
+                    return <View>{btn}</View>;
                 } catch { /* ignore */ }
             });
         }

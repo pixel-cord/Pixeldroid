@@ -75,7 +75,7 @@ export default function CleanerPanel({ channelId, channelName }: { channelId: st
                 <Text variant="text-sm/medium" color="text-muted">#{channelName}</Text>
 
                 <Card style={{ padding: 12 }}>
-                    <Text variant="text-sm/medium" color="text-danger">
+                    <Text variant="text-sm/medium" style={{ color: "#f23f43" }}>
                         ⚠️ Apagar mensagens em massa pode te dar rate-limit ou flag na conta. Só apaga as
                         SUAS mensagens. Use por sua conta e risco.
                     </Text>
@@ -115,11 +115,11 @@ export default function CleanerPanel({ channelId, channelName }: { channelId: st
                         </View>
 
                         {progress?.phase === "done" && (
-                            <Text variant="text-md/semibold" color="text-positive">
+                            <Text variant="text-md/semibold" style={{ color: "#23a55a" }}>
                                 {progress.total === 0 ? "Nenhuma mensagem encontrada." : `✅ ${progress.deleted} mensagem(ns) apagada(s).`}
                             </Text>
                         )}
-                        {progress?.phase === "error" && <Text variant="text-md/semibold" color="text-danger">❌ {progress.error}</Text>}
+                        {progress?.phase === "error" && <Text variant="text-md/semibold" style={{ color: "#f23f43" }}>❌ {progress.error}</Text>}
                         {progress?.phase === "cancelled" && <Text variant="text-md/semibold" color="text-muted">Cancelado. Apagadas: {progress.deleted}.</Text>}
 
                         <Button size="lg" variant="primary" text="Limpar agora" onPress={start} />
