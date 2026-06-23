@@ -2,10 +2,10 @@ import { registerCommand } from "@lib/api/commands";
 import { ApplicationCommandOptionType } from "@lib/api/commands/types";
 import { after } from "@lib/api/patcher";
 import { showToast } from "@lib/ui/toasts";
-import { findByName, findByStoreName } from "@metro";
+import { findByProps, findByStoreName } from "@metro";
 import { messageUtil } from "@metro/common";
-import { useEffect, useState } from "react";
-import { Pressable, Text } from "react-native";
+import { createElement, useEffect, useState } from "react";
+import { Pressable, Text, View } from "react-native";
 
 import { defineCorePlugin } from "..";
 
@@ -143,45 +143,30 @@ function FakeMuteButton() {
     );
 }
 
-// Walk VoicePanelController's rendered tree, find the mic button, and drop our
-// button right after it. Fully defensive: any failure leaves the panel untouched.
+// The mic button (VoicePanelRiveMicButton) is created deep inside a child of the
+// voice panel, so patching one container's render tree misses it. Instead we hook
+// the JSX runtime: whenever *anything* creates the mic element, we replace it with
+// a row holding [mic, our toggle]. Works no matter which component renders it.
+// createElement (not JSX) builds the wrapper so we don't re-enter the patched jsx.
 function isMic(el: any): boolean {
     const t = el?.type;
     return !!t && (t.name === "VoicePanelRiveMicButton" || t.displayName === "VoicePanelRiveMicButton");
 }
 
-function injectButton(root: any) {
-    let done = false;
-    const visit = (node: any) => {
-        if (!node || done) return;
-        if (Array.isArray(node)) {
-            for (let i = 0; i < node.length; i++) {
-                if (isMic(node[i])) {
-                    node.splice(i + 1, 0, <FakeMuteButton key="px-fakemute" />);
-                    done = true;
-                    return;
-                }
-            }
-            for (const c of node) { visit(c); if (done) return; }
-            return;
-        }
-        if (typeof node === "object" && node.props) {
-            const ch = node.props.children;
-            if (isMic(ch)) {
-                node.props.children = [ch, <FakeMuteButton key="px-fakemute" />];
-                done = true;
-                return;
-            }
-            visit(ch);
-        }
-    };
+function wrapMic(_args: unknown[], ret: any) {
     try {
-        visit(root);
+        if (isMic(ret)) {
+            return createElement(
+                View,
+                { style: { flexDirection: "row", alignItems: "center" } },
+                ret,
+                createElement(FakeMuteButton, { key: "px-fakemute" })
+            );
+        }
     } catch { /* never break the voice panel */ }
-    return done;
 }
 
-let unpatchPanel: (() => boolean) | undefined;
+let unpatchers: Array<() => boolean> = [];
 let unregister: (() => void) | undefined;
 
 export default defineCorePlugin({
@@ -195,12 +180,11 @@ export default defineCorePlugin({
     start() {
         MediaEngineStore?.addChangeListener?.(onMediaChange);
 
-        // Inject the toggle next to the mic button.
-        const VoicePanelController = findByName("VoicePanelController", false);
-        if (VoicePanelController?.default) {
-            unpatchPanel = after("default", VoicePanelController, (_args, ret) => {
-                injectButton(ret);
-            });
+        // Inject the toggle next to the mic button by wrapping it on the JSX runtime.
+        const jsxRuntime = findByProps("jsx", "jsxs");
+        if (jsxRuntime) {
+            unpatchers.push(after("jsx", jsxRuntime, wrapMic));
+            unpatchers.push(after("jsxs", jsxRuntime, wrapMic));
         }
 
         // Backup toggle via slash command.
@@ -230,8 +214,8 @@ export default defineCorePlugin({
     },
     stop() {
         MediaEngineStore?.removeChangeListener?.(onMediaChange);
-        unpatchPanel?.();
-        unpatchPanel = undefined;
+        unpatchers.forEach(u => u?.());
+        unpatchers = [];
         fakeMode = false;
         reconcile();
         unhook();
