@@ -15,7 +15,8 @@ export const getCorePlugins = (): Record<string, CorePlugin> => ({
     "pixelcord.fakemute": require("./fakemute"),
     "pixelcord.messagecleaner": require("./messagecleaner"),
     "pixelcord.clearurls": require("./clearurls"),
-    "pixelcord.hidebadges": require("./hidebadges")
+    "pixelcord.hidebadges": require("./hidebadges"),
+    "pixelcord.moreconnections": require("./moreconnections")
 });
 
 /**
