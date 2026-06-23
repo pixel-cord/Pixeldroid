@@ -1,20 +1,23 @@
 import { after } from "@lib/api/patcher";
 import { createStorage, useObservable } from "@lib/api/storage";
 import { findByProps, findByStoreName } from "@metro";
-import { TableRowGroup, TableSwitchRow, Text as MText } from "@metro/common/components";
+import { FluxUtils } from "@metro/common";
+import { TableRow, TableRowGroup, TableSwitchRow, Text as MText } from "@metro/common/components";
 import { Image, ScrollView, View } from "react-native";
 
 import { defineCorePlugin } from "..";
-import { PLATFORM_ICONS } from "./icons";
+import { CONSOLE_ICONS, PLATFORM_ICONS } from "./icons";
 
-// PlatformIndicators (mobile, v2). Shows which platform(s) a user is online on
-// next to their name, using the desktop plugin's SVG icons rasterized to PNG
-// (mobile = platform-svgs/cell-options/G_portrait.svg), tinted by the status
-// color. Data: PresenceStore.getState().clientStatuses[userId] = { desktop?,
-// mobile?, web?, embedded? } -> status string. Injected by wrapping the
-// `Username`/`DisplayName` element (props carry userId) on the JSX runtime.
+// PlatformIndicators (mobile, v3). Shows which platform(s) a user is online on
+// next to their name, using the desktop plugin's SVG icons (mobile = G_portrait),
+// tinted by status. Reactive via useStateFromStores([PresenceStore]) so it follows
+// status/device changes live. Shown only in the profile by default; toggles add
+// chat/member-list, color the mobile indicator, include bots, and pick the console
+// (embedded) icon. Profile is detected by wrapping UserProfilePrimaryInfo so the
+// name rendered inside it is tagged as profile.
 
 const PresenceStore = findByStoreName("PresenceStore");
+const UserStore = findByStoreName("UserStore");
 const jsxRuntime = findByProps("jsx", "jsxs");
 
 const STATUS_COLOR: Record<string, string> = {
@@ -23,15 +26,78 @@ const STATUS_COLOR: Record<string, string> = {
     dnd: "#F23F43"
 };
 const statusColor = (s: string) => STATUS_COLOR[s] ?? "#80848E";
-
 const ICON_H = 13;
 
 interface PISettings {
+    profile: boolean;
+    elsewhere: boolean;   // chat + member list
+    colorMobile: boolean;
+    bots: boolean;
     desktop: boolean;
+    consoleIcon: string;  // "default" | "vencord" | "suncord" | "pixelcord"
 }
 const storage = createStorage<PISettings>("plugins/pixelcord.platformindicators/settings.json", {
-    dflt: { desktop: false }
+    dflt: { profile: true, elsewhere: false, colorMobile: true, bots: false, desktop: false, consoleIcon: "default" }
 });
+
+// Set to "profile" while UserProfilePrimaryInfo renders, so the name inside is
+// recognized as the profile name (captured at inject time, not render time).
+let currentLoc: "profile" | null = null;
+const profileWrappers = new WeakMap<Function, Function>();
+
+function tagProfile(ret: any) {
+    const Orig = ret?.type;
+    if (typeof Orig !== "function") return;
+    let W = profileWrappers.get(Orig);
+    if (!W) {
+        W = function (props: any) {
+            const prev = currentLoc;
+            currentLoc = "profile";
+            try { return Orig(props); } finally { currentLoc = prev; }
+        };
+        profileWrappers.set(Orig, W);
+    }
+    ret.type = W;
+}
+
+function isBot(userId: string): boolean {
+    try { return !!UserStore.getUser(userId)?.bot; } catch { return false; }
+}
+
+// Reactive icons for one user — re-renders when their presence changes.
+function Indicators({ userId }: { userId: string; }) {
+    useObservable([storage]);
+    const cs: Record<string, string> = FluxUtils.useStateFromStores(
+        [PresenceStore],
+        () => PresenceStore.getState()?.clientStatuses?.[userId] ?? {}
+    );
+
+    const platforms = Object.entries(cs).filter(([p]) => storage.desktop || p !== "desktop");
+    if (!platforms.length) return null;
+
+    return (
+        <>
+            {platforms.map(([p, status]) => {
+                let ic = PLATFORM_ICONS[p];
+                let tint = true;
+                if (p === "embedded" && storage.consoleIcon !== "default") {
+                    const c = CONSOLE_ICONS[storage.consoleIcon];
+                    if (c) { ic = { uri: c.uri, aspect: c.aspect }; tint = c.tint; }
+                }
+                if (!ic) return null;
+                const color = (p === "mobile" && !storage.colorMobile) ? "#23A55A" : statusColor(String(status));
+                return (
+                    <Image
+                        key={p}
+                        source={{ uri: ic.uri }}
+                        resizeMode="contain"
+                        style={{ height: ICON_H, width: ICON_H * ic.aspect, marginLeft: 3, tintColor: tint ? color : undefined }}
+                    />
+                );
+            })}
+        </>
+    );
+}
 
 let unpatchers: Array<() => boolean> = [];
 
@@ -39,31 +105,21 @@ function inject(args: any[], ret: any) {
     try {
         const type = args?.[0];
         const name = type?.displayName || type?.name;
+
+        if (name === "UserProfilePrimaryInfo") { tagProfile(ret); return; }
         if (name !== "Username" && name !== "DisplayName") return;
 
         const userId = args?.[1]?.userId ?? args?.[1]?.user?.id;
         if (!userId) return;
 
-        const cs = PresenceStore.getState()?.clientStatuses?.[userId];
-        if (!cs) return;
-        const platforms = Object.entries(cs).filter(([p]) => storage.desktop || p !== "desktop");
-        if (!platforms.length) return;
+        const inProfile = currentLoc === "profile";
+        if (inProfile ? !storage.profile : !storage.elsewhere) return;
+        if (!storage.bots && isBot(userId)) return;
 
         return (
             <View style={{ flexDirection: "row", alignItems: "center" }}>
                 {ret}
-                {platforms.map(([p, status]) => {
-                    const ic = PLATFORM_ICONS[p];
-                    if (!ic) return null;
-                    return (
-                        <Image
-                            key={p}
-                            source={{ uri: ic.uri }}
-                            resizeMode="contain"
-                            style={{ height: ICON_H, width: ICON_H * ic.aspect, marginLeft: 3, tintColor: statusColor(String(status)) }}
-                        />
-                    );
-                })}
+                <Indicators userId={userId} />
             </View>
         );
     } catch {
@@ -71,21 +127,38 @@ function inject(args: any[], ret: any) {
     }
 }
 
+const CONSOLE_CHOICES = [
+    { key: "default", label: "Padrão (controle)" },
+    { key: "vencord", label: "Vencord" },
+    { key: "suncord", label: "Suncord" },
+    { key: "pixelcord", label: "Pixelcord" }
+];
+
 function SettingsComponent() {
     useObservable([storage]);
     return (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: 16, gap: 16 }}>
             <MText variant="text-md/normal" color="text-muted" style={{ paddingHorizontal: 16 }}>
-                Mostra a plataforma (celular / web / desktop / console) em que a pessoa está online,
-                do lado do nome, na cor do status.
+                Mostra a plataforma (celular/web/desktop/console) do lado do nome. Por padrão só no perfil.
             </MText>
+            <TableRowGroup title="Mostrar em">
+                <TableSwitchRow label="Perfil" value={storage.profile} onValueChange={(v: boolean) => { storage.profile = v; }} />
+                <TableSwitchRow label="Chat e lista de membros" value={storage.elsewhere} onValueChange={(v: boolean) => { storage.elsewhere = v; }} />
+            </TableRowGroup>
             <TableRowGroup title="Opções">
-                <TableSwitchRow
-                    label="Mostrar desktop também"
-                    subLabel="Por padrão só mostra celular/web/console (desktop é o comum)."
-                    value={storage.desktop}
-                    onValueChange={(v: boolean) => { storage.desktop = v; }}
-                />
+                <TableSwitchRow label="Colorir indicador do celular" subLabel="Deixa o ícone de celular na cor do status." value={storage.colorMobile} onValueChange={(v: boolean) => { storage.colorMobile = v; }} />
+                <TableSwitchRow label="Mostrar desktop" value={storage.desktop} onValueChange={(v: boolean) => { storage.desktop = v; }} />
+                <TableSwitchRow label="Mostrar bots" value={storage.bots} onValueChange={(v: boolean) => { storage.bots = v; }} />
+            </TableRowGroup>
+            <TableRowGroup title="Ícone do console">
+                {CONSOLE_CHOICES.map(c => (
+                    <TableRow
+                        key={c.key}
+                        label={c.label}
+                        trailing={storage.consoleIcon === c.key ? <MText variant="text-md/semibold" color="text-brand">✓</MText> : undefined}
+                        onPress={() => { storage.consoleIcon = c.key; }}
+                    />
+                ))}
             </TableRowGroup>
         </ScrollView>
     );
@@ -97,7 +170,7 @@ export default defineCorePlugin({
     manifest: {
         id: "pixelcord.platformindicators",
         name: "PlatformIndicators",
-        version: "1.1.0",
+        version: "1.2.0",
         description: "Mostra a plataforma (celular/web/desktop/console) em que a pessoa está online, do lado do nome.",
         authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
