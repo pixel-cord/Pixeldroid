@@ -35,7 +35,7 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
                 backgroundColor: on ? "#5865f2" : "rgba(127,127,127,0.18)"
             }}
         >
-            <Text variant="text-sm/semibold" style={on ? { color: "#fff" } : undefined}>{label}</Text>
+            <Text variant="text-sm/semibold" style={{ color: on ? "#fff" : "#dbdee1" }}>{label}</Text>
         </Pressable>
     );
 }

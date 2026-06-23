@@ -20,7 +20,7 @@ export default defineCorePlugin({
     manifest: {
         id: "pixelcord.messagecleaner",
         name: "MessageCleaner",
-        version: "1.1.0",
+        version: "1.1.1",
         description: "Apaga suas próprias mensagens em massa no chat atual. Use /clean para abrir o painel (filtros por tipo, texto, limite e velocidade). Viola o ToS do Discord — use por sua conta e risco.",
         authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
