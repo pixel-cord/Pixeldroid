@@ -1,19 +1,21 @@
-import { before } from "@lib/api/patcher";
+import { after, before } from "@lib/api/patcher";
 import { createStorage, useObservable } from "@lib/api/storage";
-import { findByProps, findByStoreName } from "@metro";
+import { findByName, findByProps, findByStoreName } from "@metro";
 import { TableRow, TableRowGroup, Text as MText } from "@metro/common/components";
 import { ScrollView } from "react-native";
 
 import { defineCorePlugin } from "..";
 
 // ShowMeYourName (mobile). Discord shows a server nickname / display name where
-// it can. This forces the real account @username to show too, next to the
-// names rendered in chat and the member list. We patch the Username/DisplayName
-// jsx props before render, swapping in the account username from UserStore.
+// it can. This forces the real account @username to show too, next to the name.
+// Two hooks: (1) chat messages via after("generate", RowManager.prototype) —
+// mutate the row's message.username (technique from MrBaskan33's showTag); and
+// (2) the profile/account name via a before-jsx patch on the Username component.
 // Opt-in (preenabled = false). Default mode shows "Apelido (username)".
 
 const UserStore = findByStoreName("UserStore");
 const jsxRuntime = findByProps("jsx", "jsxs");
+const RowManager: any = findByName("RowManager");
 
 interface SMYNSettings {
     mode: string; // "both" | "username" | "nick"
@@ -64,6 +66,45 @@ function inject(args: any[]) {
     } catch { /* ignore */ }
 }
 
+// Fold the username into a single rendered name string (nick + username).
+function foldName(shown: string, username: string): string | null {
+    if (storage.mode === "username") return "​" + username;
+    if (typeof shown !== "string") return null;
+    if (shown.toLowerCase().includes(username.toLowerCase())) return null;
+    return `${shown} (@${username})`;
+}
+
+// Chat messages: RowManager.generate produces the row whose `message.username`
+// is the displayed author name. Mutating it changes the name shown in chat.
+function patchRow(args: any[], ret: any) {
+    try {
+        if (storage.mode === "nick") return;
+        const row = args?.[0];
+        const message = ret?.message;
+        if (!message || row?.rowType !== 1 || message.username == null) return;
+
+        const user = row?.message?.author;
+        if (!user?.username) return;
+        if (user.bot && user.discriminator === "0000") return;
+
+        const nick = row?.message?.nick;
+        const base = (nick && nick.toLowerCase() !== user.username.toLowerCase()) ? nick : message.username;
+        const next = foldName(base, user.username);
+        if (next) message.username = next;
+
+        // Reply preview above the message.
+        const reply = message.referencedMessage?.message;
+        if (reply?.username != null) {
+            const ru = UserStore.getUser(reply.authorId);
+            if (ru?.username && !(ru.bot && ru.discriminator === "0000")) {
+                const mentions = reply.username.startsWith("@");
+                const rnext = foldName(reply.username.replace(/^@/, ""), ru.username);
+                if (rnext) reply.username = (mentions ? "@" : "") + rnext;
+            }
+        }
+    } catch { /* ignore */ }
+}
+
 const MODES = [
     { key: "both", label: "Apelido e @username", sub: "Ex: Ygor (luvygor)" },
     { key: "username", label: "Só @username", sub: "Sempre mostra o nome real da conta." },
@@ -75,7 +116,7 @@ function SettingsComponent() {
     return (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: 16, gap: 16 }}>
             <MText variant="text-md/normal" color="text-muted" style={{ paddingHorizontal: 16 }}>
-                Mostra o @username real da conta junto do apelido no perfil da pessoa.
+                Mostra o @username real da conta junto do apelido nos nomes do chat e no perfil.
             </MText>
             <TableRowGroup title="Como mostrar">
                 {MODES.map(m => (
@@ -98,15 +139,21 @@ export default defineCorePlugin({
     manifest: {
         id: "pixelcord.showmeyourname",
         name: "ShowMeYourName",
-        version: "1.0.0",
-        description: "Mostra o @username real da conta junto do apelido no perfil.",
+        version: "1.1.0",
+        description: "Mostra o @username real da conta junto do apelido (no chat e no perfil).",
         authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
     SettingsComponent,
     start() {
-        if (!jsxRuntime) return;
-        unpatchers.push(before("jsx", jsxRuntime, inject));
-        unpatchers.push(before("jsxs", jsxRuntime, inject));
+        // Chat messages.
+        if (RowManager?.prototype?.generate) {
+            unpatchers.push(after("generate", RowManager.prototype, patchRow));
+        }
+        // Profile / account-panel name.
+        if (jsxRuntime) {
+            unpatchers.push(before("jsx", jsxRuntime, inject));
+            unpatchers.push(before("jsxs", jsxRuntime, inject));
+        }
     },
     stop() {
         unpatchers.forEach(u => u?.());
