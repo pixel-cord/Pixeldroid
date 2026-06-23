@@ -129,16 +129,15 @@ function FakeMuteButton() {
             accessibilityLabel="Fake mute"
             onPress={() => setFakeMode(!fakeMode)}
             style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                marginLeft: 16,
+                width: 44,
+                height: 44,
+                borderRadius: 22,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: on ? "#f23f43" : "rgba(255,255,255,0.12)"
+                backgroundColor: on ? "#f23f43" : "rgba(120,120,128,0.32)"
             }}
         >
-            <Text style={{ fontSize: 20 }}>{on ? "🤫" : "🎙️"}</Text>
+            <Text style={{ fontSize: 19 }}>{on ? "🤫" : "🥸"}</Text>
         </Pressable>
     );
 }
@@ -156,14 +155,18 @@ function isMic(el: any): boolean {
 function wrapMic(_args: unknown[], ret: any) {
     try {
         if (isMic(ret)) {
-            // Wrap the mic in its own box so it keeps its size, then place our
-            // button beside it with a real gap (the Rive mic doesn't reserve flex
-            // width on its own, which made them overlap).
+            // Keep the mic's slot EXACTLY the same size (so the control bar doesn't
+            // re-center and lift it), and float our button just to its right via
+            // absolute positioning — vertically centered to the mic.
             return createElement(
                 View,
-                { style: { flexDirection: "row", alignItems: "center", justifyContent: "center" } },
-                createElement(View, null, ret),
-                createElement(FakeMuteButton, { key: "px-fakemute" })
+                { style: { justifyContent: "center", alignItems: "center" } },
+                ret,
+                createElement(
+                    View,
+                    { style: { position: "absolute", left: "100%", paddingLeft: 14, top: 0, bottom: 0, justifyContent: "center" } },
+                    createElement(FakeMuteButton, { key: "px-fakemute" })
+                )
             );
         }
     } catch { /* never break the voice panel */ }
