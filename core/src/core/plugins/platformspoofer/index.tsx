@@ -160,6 +160,16 @@ function spoof(real: any): any {
     };
 }
 
+// The gateway IDENTIFY uses the base64 string (cached separately from the
+// getSuperProperties object), so we must re-encode it too. Decode the real
+// base64, spoof its fields, re-encode — keeps every real field (build number,
+// launch id, etc.) and only overrides the platform ones.
+function spoofBase64(realB64: string): string {
+    const real = JSON.parse(decodeURIComponent(escape(atob(realB64))));
+    const json = JSON.stringify(spoof(real));
+    return btoa(unescape(encodeURIComponent(json)));
+}
+
 let unpatchers: Array<() => boolean> = [];
 
 export const preenabled = false;
@@ -205,7 +215,7 @@ export default defineCorePlugin({
     manifest: {
         id: "pixelcord.platformspoofer",
         name: "PlatformSpoofer",
-        version: "1.0.0",
+        version: "1.0.1",
         description: "Aparece em outra plataforma (desktop, iOS, Android, Xbox, PlayStation, VR) no lado do seu nome.",
         authors: [{ name: "luvygor", id: "1499140821696647301" }]
     },
@@ -215,6 +225,20 @@ export default defineCorePlugin({
         const SuperProps = findByProps("getSuperProperties");
         if (SuperProps?.getSuperProperties) {
             unpatchers.push(after("getSuperProperties", SuperProps, (_args, ret) => spoof(ret)));
+        }
+        // The base64 form is what the gateway IDENTIFY actually sends (and it's
+        // cached, so the object patch above doesn't reach it) — re-encode it.
+        if (typeof SuperProps?.getSuperPropertiesBase64 === "function") {
+            unpatchers.push(
+                instead("getSuperPropertiesBase64", SuperProps, (args: any[], orig: any) => {
+                    const realB64 = orig(...args);
+                    try {
+                        return spoofBase64(realB64);
+                    } catch {
+                        return realB64; // never break the handshake
+                    }
+                })
+            );
         }
 
         // Fallback: mutate the IDENTIFY payload at dispatch time, in case the gateway
