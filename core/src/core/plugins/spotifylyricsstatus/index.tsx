@@ -32,12 +32,13 @@ interface SyncedLyric {
 
 interface Settings {
     emoji: string;
+    onlySyncedLyrics: boolean;
     fallbackToTrackName: boolean;
     maxLength: number;
 }
 
 const storage = createStorage<Settings>("plugins/pixelcord.spotifylyricsstatus/settings.json", {
-    dflt: { emoji: "🎵", fallbackToTrackName: true, maxLength: 128 }
+    dflt: { emoji: "🎵", onlySyncedLyrics: true, fallbackToTrackName: true, maxLength: 128 }
 });
 
 export const preenabled = false;
@@ -88,7 +89,8 @@ async function fetchLyrics(trackId: string): Promise<SyncedLyric[] | null> {
         if (!res.ok) return null;
 
         const json = await res.json();
-        const lines = json?.data?.lines;
+        const data = json?.data;
+        const lines = data?.lines;
         if (!Array.isArray(lines) || lines.length < 2) return null;
 
         const parsed: SyncedLyric[] = lines
@@ -100,6 +102,14 @@ async function fetchLyrics(trackId: string): Promise<SyncedLyric[] | null> {
                 };
             })
             .filter((l: SyncedLyric) => Number.isFinite(l.time));
+
+        // Unsynced lyrics sit at 0ms on every line — showing them just freezes
+        // on the wrong line. If the user only wants synced lyrics, drop these so
+        // we fall back to the track name instead.
+        if (storage.onlySyncedLyrics) {
+            const isSynced = data?.syncType === "LINE_SYNCED" && parsed.some(l => l.time > 0);
+            if (!isSynced) return null;
+        }
 
         return parsed.length >= 2 ? parsed : null;
     } catch (e) {
@@ -242,6 +252,21 @@ function SettingsComponent() {
                             }}
                             style={{ minWidth: 60, textAlign: "center" }}
                         />
+                    }
+                />
+                <TableRow
+                    label="Apenas letras sincronizadas"
+                    subLabel="Não mostra letras que não estão sincronizadas com a música (fora de tempo)"
+                    trailing={
+                        <MText
+                            variant="text-md/semibold"
+                            color="text-brand"
+                            onPress={() => {
+                                storage.onlySyncedLyrics = !storage.onlySyncedLyrics;
+                            }}
+                        >
+                            {storage.onlySyncedLyrics ? "Sim ✓" : "Não"}
+                        </MText>
                     }
                 />
                 <TableRow
