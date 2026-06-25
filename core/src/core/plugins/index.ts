@@ -28,7 +28,8 @@ export const getCorePlugins = (): Record<string, CorePlugin> => ({
     "pixelcord.friendssince": require("./friendssince"),
     "pixelcord.nopendingcount": require("./nopendingcount"),
     "pixelcord.nounblocktojump": require("./nounblocktojump"),
-    "pixelcord.accountswitcher": require("./accountswitcher")
+    "pixelcord.accountswitcher": require("./accountswitcher"),
+    "pixelcord.platformspoofer": require("./platformspoofer")
 });
 
 /**
