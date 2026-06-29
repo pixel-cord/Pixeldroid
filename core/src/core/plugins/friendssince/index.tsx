@@ -71,17 +71,25 @@ function inject(args: any[], ret: any) {
         const type = args?.[0];
         const name = type?.displayName || type?.name;
         if (name !== "UserProfileAboutMeCard") return;
-        const userId = args?.[1]?.userId;
-        if (!userId || !RelationshipStore?.isFriend?.(userId)) return;
 
         const Orig = ret?.type;
         if (typeof Orig === "function") {
+            // Wrap UNCONDITIONALLY and keep the wrapper stable. We must NOT gate
+            // the `ret.type` swap on isFriend: relationship data loads async, so
+            // it flips false→true after the profile first renders. That flipped
+            // `ret.type` between `Orig` and `W`, and since React reconciles by
+            // type identity it remounted the card's Reanimated subtree — which
+            // crashed on unmount with "[Reanimated] Cannot find host instance
+            // for this component. Maybe it renders nothing?". Always installing
+            // `W` keeps the element type constant across renders.
             let W = wrappers.get(Orig);
             if (!W) {
                 W = function (props: any) {
                     const out = Orig(props);
-                    if (!props?.userId || !RelationshipStore?.isFriend?.(props.userId)) return out;
-                    return appendLine(out, props.userId);
+                    // Always append; FriendsSinceLine renders null when the
+                    // viewer isn't a friend (or the date is missing), so the
+                    // children shape stays constant and nothing remounts.
+                    return props?.userId ? appendLine(out, props.userId) : out;
                 };
                 wrappers.set(Orig, W);
             }
@@ -90,7 +98,10 @@ function inject(args: any[], ret: any) {
         }
 
         // Fallback: the card type isn't a plain function we can wrap — put the
-        // line right below the card so it's at least visible.
+        // line right below the card so it's at least visible. Done for every
+        // render (the line is null for non-friends) to keep the tree stable.
+        const userId = args?.[1]?.userId;
+        if (!userId) return;
         return (
             <View>
                 {ret}
