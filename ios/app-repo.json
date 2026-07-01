@@ -11,7 +11,14 @@
       "localizedDescription": "Pixelcord — a Discord mobile client mod (iOS). Loads the Pixelcord bundle into Discord.",
       "subtitle": "A Discord client mod",
       "tintColor": "5865f2",
-      "versions": [],
+      "versions": [
+        {
+          "version": "335.0",
+          "date": "2026-07-01",
+          "size": 95203703,
+          "downloadURL": "https://github.com/pixel-cord/Pixeldroid/releases/download/ios-v335.0/Pixelcord.ipa"
+        }
+      ],
       "appPermissions": {}
     }
   ],
