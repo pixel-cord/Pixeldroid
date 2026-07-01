@@ -1,0 +1,152 @@
+name: iOS Build
+
+# Builds the Pixelcord iOS tweak (.deb) and injects it into a decrypted Discord
+# IPA to produce a sideloadable Pixelcord.ipa (AltStore / SideStore / TrollStore).
+# You must supply a direct link to a DECRYPTED Discord IPA (ipa_url).
+
+on:
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: "Direct link to a DECRYPTED Discord IPA"
+        required: true
+        type: string
+      release:
+        description: "Publish a GitHub release with the .ipa + .deb"
+        required: true
+        default: true
+        type: boolean
+      is_testflight:
+        description: "TestFlight build (uses build number in the tag)"
+        required: true
+        default: false
+        type: boolean
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  build-tweak:
+    name: Build tweak (.deb)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute theos cache key
+        run: echo "upstream_heads=$(git ls-remote https://github.com/theos/theos | head -n 1 | cut -f 1)-$(git ls-remote https://github.com/theos/sdks | head -n 1 | cut -f 1)" >> $GITHUB_ENV
+
+      - name: Cache theos
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/theos
+          key: ${{ runner.os }}-${{ env.upstream_heads }}
+
+      - name: Prepare theos
+        uses: Randomblock1/theos-action@v1
+
+      - name: Set GNU Make path
+        run: echo "PATH=$(brew --prefix make)/libexec/gnubin:$PATH" >> $GITHUB_ENV
+
+      - name: Build package
+        working-directory: ios
+        run: make package
+
+      - name: Upload .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb
+          path: ios/packages/*-arm64.deb
+
+  build-ipa:
+    name: Build sideloadable IPA
+    runs-on: macos-15
+    needs: build-tweak
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download .deb
+        uses: actions/download-artifact@v4
+        with:
+          name: deb
+          path: deb
+
+      - name: Download Discord IPA
+        run: curl -L -o discord.ipa "${{ inputs.ipa_url }}"
+
+      - name: Install cyan (pyzule-rw)
+        run: pip install --force-reinstall https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip Pillow
+
+      - name: Resolve names
+        run: |
+          PACKAGE=$(grep '^Package:' ios/control | cut -d ' ' -f 2)
+          VERSION=$(grep '^Version:' ios/control | cut -d ' ' -f 2)
+          echo "DEB_FILE=$(ls deb/*-arm64.deb | head -n1)" >> $GITHUB_ENV
+          echo "APP_NAME=$(grep '^Name:' ios/control | cut -d ' ' -f 2)" >> $GITHUB_ENV
+
+      - name: Inject tweak into IPA
+        run: cyan -duwsgq -n "${{ env.APP_NAME }}" -i discord.ipa -o "${{ env.APP_NAME }}.ipa" -f "${{ env.DEB_FILE }}"
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipa
+          path: ${{ env.APP_NAME }}.ipa
+
+  release:
+    name: Release
+    if: ${{ inputs.release }}
+    runs-on: macos-15
+    needs: build-ipa
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Resolve version + names
+        run: |
+          echo "APP_NAME=$(grep '^Name:' ios/control | cut -d ' ' -f 2)" >> $GITHUB_ENV
+          unzip -q "$(grep '^Name:' ios/control | cut -d ' ' -f 2).ipa" -d _ipa
+          DVER=$(plutil -p _ipa/Payload/Discord.app/Info.plist | grep CFBundleShortVersionString | cut -d '"' -f 4)
+          if [ "${{ inputs.is_testflight }}" = "true" ]; then
+            BUILD=$(plutil -p _ipa/Payload/Discord.app/Info.plist | grep CFBundleVersion | cut -d '"' -f 4)
+            DVER="${DVER}_${BUILD}"
+            echo "IS_PRERELEASE=true" >> $GITHUB_ENV
+          else
+            echo "IS_PRERELEASE=false" >> $GITHUB_ENV
+          fi
+          echo "DISCORD_VERSION=$DVER" >> $GITHUB_ENV
+          rm -rf _ipa
+
+      - name: Create release
+        id: rel
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-v${{ env.DISCORD_VERSION }}
+          name: iOS ${{ env.DISCORD_VERSION }}
+          files: |
+            *-arm64.deb
+            ${{ env.APP_NAME }}.ipa
+          generate_release_notes: true
+          prerelease: ${{ env.IS_PRERELEASE }}
+          fail_on_unmatched_files: true
+
+      - name: Update app-repo.json
+        run: |
+          DATE=$(date -u +"%Y-%m-%d")
+          SIZE=$(stat -f%z "${{ env.APP_NAME }}.ipa")
+          URL="https://github.com/${{ github.repository }}/releases/download/ios-v${{ env.DISCORD_VERSION }}/${{ env.APP_NAME }}.ipa"
+          ENTRY=$(jq -n --arg v "${{ env.DISCORD_VERSION }}" --arg d "$DATE" --arg s "$SIZE" --arg u "$URL" \
+            '{version:$v,date:$d,size:($s|tonumber),downloadURL:$u}')
+          jq --argjson e "$ENTRY" '.apps[0].versions |= [$e] + .' ios/app-repo.json > tmp.json && mv tmp.json ios/app-repo.json
+
+      - uses: EndBug/add-and-commit@v9
+        with:
+          default_author: github_actions
+          message: "chore(ios): update app-repo.json"
+          add: ios/app-repo.json

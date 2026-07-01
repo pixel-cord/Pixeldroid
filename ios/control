@@ -1,0 +1,10 @@
+Package: br.com.pixelcord.ios
+Name: Pixelcord
+Version: 0.1.0
+Architecture: iphoneos-arm
+Description: A client modification for Discord's mobile app (iOS).
+Maintainer: q6r
+Author: q6r
+Section: Tweaks
+Depends: mobilesubstrate (>= 0.9.5000)
+Conflicts: app.pyoncord, app.enmity, mod.vendetta, app.unbound
