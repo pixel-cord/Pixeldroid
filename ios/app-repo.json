@@ -13,6 +13,12 @@
       "tintColor": "5865f2",
       "versions": [
         {
+          "version": "328.0",
+          "date": "2026-07-01",
+          "size": 92004893,
+          "downloadURL": "https://github.com/pixel-cord/Pixeldroid/releases/download/ios-v328.0/Pixelcord.ipa"
+        },
+        {
           "version": "335.0",
           "date": "2026-07-01",
           "size": 95203703,
