@@ -8,8 +8,12 @@ on:
   workflow_dispatch:
     inputs:
       ipa_url:
-        description: "Direct link to a DECRYPTED Discord IPA"
-        required: true
+        description: "Direct link to a DECRYPTED Discord IPA (or use ipa_release)"
+        required: false
+        type: string
+      ipa_release:
+        description: "Tag of a (draft) release in THIS repo holding the decrypted Discord .ipa asset"
+        required: false
         type: string
       release:
         description: "Publish a GitHub release with the .ipa + .deb"
@@ -72,7 +76,14 @@ jobs:
           path: deb
 
       - name: Download Discord IPA
-        run: curl -L -o discord.ipa "${{ inputs.ipa_url }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${{ inputs.ipa_release }}" ]; then
+            gh release download "${{ inputs.ipa_release }}" --repo "${{ github.repository }}" --pattern '*.ipa' --output discord.ipa --clobber
+          else
+            curl -L -o discord.ipa "${{ inputs.ipa_url }}"
+          fi
 
       - name: Install cyan (pyzule-rw)
         run: pip install --force-reinstall https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip Pillow
