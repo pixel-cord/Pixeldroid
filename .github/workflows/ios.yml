@@ -85,7 +85,7 @@ jobs:
           echo "APP_NAME=$(grep '^Name:' ios/control | cut -d ' ' -f 2)" >> $GITHUB_ENV
 
       - name: Inject tweak into IPA
-        run: cyan -duwsgq -n "${{ env.APP_NAME }}" -i discord.ipa -o "${{ env.APP_NAME }}.ipa" -f "${{ env.DEB_FILE }}"
+        run: cyan -duwsgq -n "${{ env.APP_NAME }}" -k ios/icon.png -i discord.ipa -o "${{ env.APP_NAME }}.ipa" -f "${{ env.DEB_FILE }}"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
