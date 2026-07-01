@@ -192,7 +192,7 @@ export default defineCorePlugin({
         name: "HideBadges",
         version: "1.0.0",
         description: "Esconda suas próprias badges pra todo mundo no Pixelcord. Sincroniza com o desktop (os dados ficam na sua conta).",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     SettingsComponent
 });

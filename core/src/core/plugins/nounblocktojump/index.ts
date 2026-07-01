@@ -21,7 +21,7 @@ export default defineCorePlugin({
         name: "NoUnblockToJump",
         version: "1.0.0",
         description: "Permite pular para mensagens de usuários bloqueados sem precisar desbloquear.",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     start() {
         if (typeof Blocked?.isBlockedForMessage === "function") {

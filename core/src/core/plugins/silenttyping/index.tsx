@@ -18,7 +18,7 @@ export default defineCorePlugin({
         name: "SilentTyping",
         version: "1.0.0",
         description: "Stops sending typing indicators to others",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     start() {
         const Typing = findByProps("startTyping", "stopTyping");

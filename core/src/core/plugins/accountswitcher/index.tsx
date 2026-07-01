@@ -160,7 +160,7 @@ export default defineCorePlugin({
         name: "AccountSwitcher",
         version: "1.0.0",
         description: "Várias contas tipo PC: entre por token e troque entre elas. Usa o login nativo do Discord (sessão normal). Tokens ficam só no seu aparelho.",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     SettingsComponent,
     start() {

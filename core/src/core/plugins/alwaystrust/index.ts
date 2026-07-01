@@ -22,7 +22,7 @@ export default defineCorePlugin({
         name: "AlwaysTrust",
         version: "1.0.0",
         description: "Remove o aviso de \"site não confiável\" ao abrir links externos.",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     start() {
         if (typeof MaskedLinkStore?.isTrustedDomain === "function") {

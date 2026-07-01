@@ -82,7 +82,7 @@ export default defineCorePlugin({
         name: "FakeProfileThemes",
         version: "1.0.0",
         description: "Mostra as cores de perfil escondidas na bio (codificação 3y3) — compatível com o desktop.",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     SettingsComponent,
     start() {

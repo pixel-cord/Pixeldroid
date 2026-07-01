@@ -49,7 +49,7 @@ export default defineCorePlugin({
         name: "ClearURLs",
         version: "1.0.0",
         description: "Remove parâmetros de rastreamento (utm_*, fbclid, igshid, etc.) dos links que você envia.",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     start() {
         unpatchSend = before("sendMessage", MessageActions, (args: any[]) => {

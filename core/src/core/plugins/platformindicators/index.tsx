@@ -209,7 +209,7 @@ export default defineCorePlugin({
         name: "PlatformIndicators",
         version: "1.2.2",
         description: "Mostra a plataforma (celular/web/desktop/console) em que a pessoa está online, do lado do nome.",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     SettingsComponent,
     start() {

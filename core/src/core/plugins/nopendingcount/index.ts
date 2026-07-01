@@ -21,7 +21,7 @@ export default defineCorePlugin({
         name: "NoPendingCount",
         version: "1.0.0",
         description: "Remove o número de pedidos de amizade e de mensagem pendentes.",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     start() {
         if (typeof RelationshipStore?.getPendingCount === "function") {

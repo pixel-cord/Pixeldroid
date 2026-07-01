@@ -109,7 +109,7 @@ export default defineCorePlugin({
         name: "TextReplace",
         version: "1.0.0",
         description: "Substitui texto nas suas mensagens antes de enviar (regras simples ou regex).",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     SettingsComponent,
     start() {

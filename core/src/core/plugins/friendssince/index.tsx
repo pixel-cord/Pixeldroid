@@ -121,7 +121,7 @@ export default defineCorePlugin({
         name: "FriendsSince",
         version: "1.0.0",
         description: "Mostra desde quando vocês são amigos no perfil da pessoa.",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     start() {
         if (!jsxRuntime) return;

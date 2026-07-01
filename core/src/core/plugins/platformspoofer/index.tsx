@@ -110,7 +110,7 @@ export default defineCorePlugin({
         name: "PlatformSpoofer",
         version: "1.1.0",
         description: "Aparece em outra plataforma (desktop, iOS, Android, Xbox, PlayStation, VR) no lado do seu nome.",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     SettingsComponent,
     start() {

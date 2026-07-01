@@ -295,7 +295,7 @@ export default defineCorePlugin({
         name: "SpotifyLyricsStatus",
         version: "1.0.0",
         description: "Sincroniza o status com a letra da música do Spotify em tempo real; limpa quando a música acaba.",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     SettingsComponent,
     start() {

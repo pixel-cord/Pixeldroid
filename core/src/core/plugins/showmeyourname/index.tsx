@@ -141,7 +141,7 @@ export default defineCorePlugin({
         name: "ShowMeYourName",
         version: "1.1.0",
         description: "Mostra o @username real da conta junto do apelido (no chat e no perfil).",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     SettingsComponent,
     start() {

@@ -39,7 +39,7 @@ export default defineCorePlugin({
         name: "NoProfileThemes",
         version: "1.0.0",
         description: "Remove os temas de perfil (cores e efeitos do Nitro) das outras pessoas, deixando os perfis no estilo padrão.",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     start() {
         if (!UserProfileStore?.getUserProfile) return;

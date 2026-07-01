@@ -16,7 +16,7 @@ export default defineCorePlugin({
         name: "NoTrack",
         version: "1.0.0",
         description: "Blocks Discord's analytics and tracking",
-        authors: [{ name: "luvygor", id: "1499140821696647301" }]
+        authors: [{ name: "myvings", id: "73598582153805824" }]
     },
     start() {
         const Analytics = findByProps("track", "trackNetworkAction");
